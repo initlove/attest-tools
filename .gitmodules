@@ -1,0 +1,5 @@
+[submodule "openssl_tpm2_engine"]
+	path = openssl_tpm2_engine
+	url = https://git.kernel.org/pub/scm/linux/kernel/git/jejb/openssl_tpm2_engine.git
+	branch = v1.2.1
+	ignore = dirty
