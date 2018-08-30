@@ -47,6 +47,9 @@ AC_CHECK_HEADER([tss2/tss.h],[AC_DEFINE(TSS_INCLUDE,tss2)],
 	AC_CHECK_HEADER([ibmtss/tss.h],[AC_DEFINE(TSS_INCLUDE,ibmtss)],
 	   AC_MSG_ERROR([No TSS2 include directory found])))
 
+AC_CHECK_LIB([digestlists], [ima_init_gpgme],[digestlists=true],[],[])
+AM_CONDITIONAL([DIGESTLISTS], [test x$digestlists = xtrue])
+
 CFLAGS="$CFLAGS -Wall"
 AC_SUBST(CFLAGS)
 AC_SUBST(TSS_INCLUDE)
