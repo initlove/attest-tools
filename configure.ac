@@ -35,14 +35,20 @@ AC_SEARCH_LIBS([curl_easy_setopt], [curl], [],
 	       AC_MSG_ERROR([Unable to find the curl library]))
 AC_SEARCH_LIBS([json_object_new_object], [json-c], [],
 	       AC_MSG_ERROR([Unable to find the json-c library]))
+AC_SEARCH_LIBS([TSS_Create], [tss ibmtss], [],
+	       AC_MSG_ERROR([Unable to find the TSS2 library]))
 
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h stdlib.h string.h unistd.h])
 AC_CHECK_HEADER([openssl/evp.h])
 AC_CHECK_HEADER([curl/curl.h])
 AC_CHECK_HEADER([json-c/json.h])
+AC_CHECK_HEADER([tss2/tss.h],[AC_DEFINE(TSS_INCLUDE,tss2)],
+	AC_CHECK_HEADER([ibmtss/tss.h],[AC_DEFINE(TSS_INCLUDE,ibmtss)],
+	   AC_MSG_ERROR([No TSS2 include directory found])))
 
 CFLAGS="$CFLAGS -Wall"
 AC_SUBST(CFLAGS)
+AC_SUBST(TSS_INCLUDE)
 
 AC_OUTPUT([Makefile libs/Makefile])
