@@ -55,4 +55,4 @@ AC_SUBST(CFLAGS)
 AC_SUBST(TSS_INCLUDE)
 
 AC_OUTPUT([Makefile libs/Makefile libs/event_log/Makefile
-	   verifiers/Makefile src/Makefile])
+	   verifiers/Makefile src/Makefile scripts/Makefile])
