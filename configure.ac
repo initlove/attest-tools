@@ -33,11 +33,14 @@ AC_SEARCH_LIBS([SHA256_Init], [crypto], [],
 	       AC_MSG_ERROR([Unable to find the OpenSSL library]))
 AC_SEARCH_LIBS([curl_easy_setopt], [curl], [],
 	       AC_MSG_ERROR([Unable to find the curl library]))
+AC_SEARCH_LIBS([json_object_new_object], [json-c], [],
+	       AC_MSG_ERROR([Unable to find the json-c library]))
 
 # Checks for header files.
 AC_CHECK_HEADERS([fcntl.h stdlib.h string.h unistd.h])
 AC_CHECK_HEADER([openssl/evp.h])
 AC_CHECK_HEADER([curl/curl.h])
+AC_CHECK_HEADER([json-c/json.h])
 
 CFLAGS="$CFLAGS -Wall"
 AC_SUBST(CFLAGS)
