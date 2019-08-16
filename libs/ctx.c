@@ -2,9 +2,14 @@
  *  User API
  */
 
+/** @defgroup context-api Context API
+ *  @ingroup user-api
+ *  Context API
+ */
+
 /**
- * \addtogroup user-api
- *
+ * @name Context API
+ * \addtogroup context-api
  *  @{
  */
 
@@ -38,11 +43,18 @@ struct verification_log unknown_log = {{&unknown_log.list, &unknown_log.list},
 static const char *ctx_fields_str[CTX__LAST] = {
 	[CTX_PRIVACY_CA_CERT] = "privacy_ca_cert",
 	[CTX_AIK_CERT] = "aik_cert",
+	[CTX_TPM_AK_KEY] = "tpm_ak_key",
 	[CTX_TPM_KEY] = "tpm_key",
 	[CTX_TPM_KEY_TEMPLATE] = "template",
 	[CTX_TPM_KEY_POLICY] = "policy",
 	[CTX_EVENT_LOG] = "event_log",
 	[CTX_AUX_DATA] = "aux_data",
+	[CTX_EK_CERT] = "ek_cert",
+	[CTX_EK_CA_CERT] = "ek_ca_cert",
+	[CTX_CRED] = "cred",
+	[CTX_CRED_HMAC] = "cred_hmac",
+	[CTX_CREDBLOB] = "credblob",
+	[CTX_SECRET] = "secret",
 };
 
 static const char *data_formats_str[DATA_FMT__LAST] = {
@@ -123,15 +135,22 @@ static int attest_ctx_data_add_common(attest_ctx_data *ctx,
 {
 	struct data_item *new_item = NULL;
 	char path_dest[MAX_PATH_LENGTH], *path_ptr = path;
+	char *filename;
 	int rc = -EINVAL;
 
 	if (!ctx)
 		return -EINVAL;
 
 	if (path) {
+		filename = strrchr(path, '/');
+		if (filename)
+			filename++;
+		else
+			filename = path;
+
 		if (strncmp(path, ctx->data_dir, strlen(ctx->data_dir))) {
 			snprintf(path_dest, sizeof(path_dest), "%s/%s",
-				 ctx->data_dir, basename(path));
+				 ctx->data_dir, filename);
 			rc = attest_util_copy_file(path, path_dest);
 			if (rc)
 				goto out;
@@ -201,6 +220,31 @@ int attest_ctx_data_add(attest_ctx_data *ctx, enum ctx_fields field,
 			size_t len, unsigned char *data, const char *label)
 {
 	return attest_ctx_data_add_common(ctx, field, NULL, len, data, label);
+}
+
+/**
+ * Copy and add binary data to data context
+ * @param[in] ctx	data context
+ * @param[in] field	field identifier
+ * @param[in] len	binary data length
+ * @param[in] data	binary data
+ * @param[in] label	data label
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_data_add_copy(attest_ctx_data *ctx, enum ctx_fields field,
+			     size_t len, unsigned char *data,
+			     const char *label)
+{
+	unsigned char *copy;
+
+	copy = malloc(len);
+	if (!copy)
+		return -ENOMEM;
+
+	memcpy(copy, data, len);
+
+	return attest_ctx_data_add_common(ctx, field, NULL, len, copy, label);
 }
 
 /**
@@ -455,6 +499,8 @@ void attest_ctx_data_cleanup(attest_ctx_data *ctx)
 
 		list_for_each_entry_safe(item, temp_item, head, list) {
 			list_del(&item->list);
+
+			memset(item->data, 0, item->len);
 
 			if (item->mapped_file &&
 			    !strncmp(item->mapped_file, ctx->data_dir,
@@ -764,6 +810,22 @@ int attest_ctx_verifier_init(attest_ctx_verifier **ctx)
 	return 0;
 }
 
+/**
+ * Set random key in the verifier context
+ *
+ * @param[in] ctx	verifier context
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx,
+				unsigned char *key, int key_len)
+{
+	if (key_len > sizeof(ctx->key))
+		return -EINVAL;
+
+	memcpy(ctx->key, key, key_len);
+	return 0;
+}
 
 /**
  * Denitialize verifier context
@@ -786,8 +848,9 @@ void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx)
 
 	attest_ctx_verifier_free_logs(ctx);
 
+	memset(ctx, 0, sizeof(*ctx));
+
 	if (ctx != &global_ctx_verifier)
 		free(ctx);
 }
-/** @}*/
 /** @}*/

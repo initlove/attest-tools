@@ -137,7 +137,9 @@ out:
 }
 
 int attest_crypto_verify_cert(attest_ctx_data *d_ctx,
-			      attest_ctx_verifier *v_ctx, X509 **x509)
+			      attest_ctx_verifier *v_ctx,
+			      enum ctx_fields cert, enum ctx_fields ca,
+			      X509 **x509)
 {
 	struct data_item *cert_item, *ca_cert_item;
 	X509 *aik_cert = NULL, *ca_cert;
@@ -149,7 +151,7 @@ int attest_crypto_verify_cert(attest_ctx_data *d_ctx,
 
 	current_log(v_ctx);
 
-	cert_item = attest_ctx_data_get(d_ctx, CTX_AIK_CERT);
+	cert_item = attest_ctx_data_get(d_ctx, cert);
 	check_goto(!cert_item, -ENOENT, out, v_ctx,
 		   "AIK certificate not provided");
 
@@ -164,7 +166,7 @@ int attest_crypto_verify_cert(attest_ctx_data *d_ctx,
 	ca_store  = X509_STORE_new();
 	check_goto(!ca_store, -ENOMEM, out, v_ctx, "X509_STORE_new() error");
 
-	head = &d_ctx->ctx_data[CTX_PRIVACY_CA_CERT];
+	head = &d_ctx->ctx_data[ca];
 
 	list_for_each_entry(ca_cert_item, head, list) {
 		bio = BIO_new_mem_buf((void*)ca_cert_item->data,

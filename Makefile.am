@@ -1,1 +1,1 @@
-SUBDIRS = libs verifiers src scripts
+SUBDIRS = libs verifiers src scripts tests

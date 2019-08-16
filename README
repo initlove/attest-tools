@@ -1,0 +1,21 @@
+Disclaimer: attest-tools is currently under development; this is a preliminary
+            version.
+
+
+Installation instructions for libenroll
+
+It is necessary to install the latest version of IBM TSS.
+
+Also, the files ekutils.h and cryptoutils.h must be copied to
+/usr/include/ibmtss.
+
+It requires a patched version of libtpms (makecredential-devel-v1 branch in
+https://github.com/euleros/libtpms), which exports the functions to make a
+credential.
+
+To use the enrollment client, it is necessary to manually download EK cert
+issuer certificates (use scripts/ekcert_read.sh to get the EK cert from the TPM)
+and to replace ek_ca_cert.pem in tests/test_client.c with the correct ones.
+
+To use the enrollment server, it is necessary to generate a CA key pair and to
+save the private key to cakey.pem.

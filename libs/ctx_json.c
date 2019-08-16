@@ -1,6 +1,6 @@
 /**
  * @name JSON Context Functions
- * \addtogroup user-api
+ * \addtogroup context-api
  *  @{
  */
 
@@ -79,6 +79,30 @@ static int attest_ctx_data_add_json(attest_ctx_data *ctx, json_object *obj,
 }
 
 /**
+ * Parse JSON data
+ * @param[in] data	data to parse
+ * @param[in] len	length of data to parse
+ *
+ * @returns JSON object on success, NULL on error
+ */
+struct json_object *attest_ctx_parse_json_data(const char *data, size_t len)
+{
+	struct json_tokener *tok;
+	enum json_tokener_error e;
+	json_object *root;
+
+	tok = json_tokener_new();
+	root = json_tokener_parse_ex(tok, (const char *)data, len);
+
+	e = json_tokener_get_error(tok);
+	if (e != json_tokener_success)
+		printf("JSON parsing error: %s\n", json_tokener_error_desc(e));
+
+	json_tokener_free(tok);
+	return root;
+}
+
+/**
  * Parse JSON file
  * @param[in] path	file path
  *
@@ -86,8 +110,6 @@ static int attest_ctx_data_add_json(attest_ctx_data *ctx, json_object *obj,
  */
 struct json_object *attest_ctx_parse_json_file(const char *path)
 {
-	struct json_tokener *tok;
-	enum json_tokener_error e;
 	json_object *root;
 	unsigned char *data;
 	size_t len;
@@ -97,16 +119,35 @@ struct json_object *attest_ctx_parse_json_file(const char *path)
 	if (rc)
 		return NULL;
 
-	tok = json_tokener_new();
-	root = json_tokener_parse_ex(tok, (const char *)data, len);
+	root = attest_ctx_parse_json_data((char *)data, len);
 	munmap(data, len);
-
-	e = json_tokener_get_error(tok);
-	if (e != json_tokener_success)
-		printf("JSON parsing error: %s\n", json_tokener_error_desc(e));
-
-	json_tokener_free(tok);
 	return root;
+}
+
+/**
+ * Add JSON data containing data to data context
+ * @param[in] ctx	data context
+ * @param[in] data	data to parse
+ * @param[in] len	length of data to parse
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_data_add_json_data(attest_ctx_data *ctx, const char *data,
+				  size_t len)
+{
+	json_object *root;
+	int rc;
+
+	if (!ctx)
+		return -EINVAL;
+
+	root = attest_ctx_parse_json_data(data, len);
+	if (!root)
+		return -EINVAL;
+
+	rc = attest_ctx_data_add_json(ctx, root, CTX__LAST, NULL);
+	json_object_put(root);
+	return rc;
 }
 
 /**
@@ -131,6 +172,58 @@ int attest_ctx_data_add_json_file(attest_ctx_data *ctx, const char *path)
 	rc = attest_ctx_data_add_json(ctx, root, CTX__LAST, NULL);
 	json_object_put(root);
 	return rc;
+}
+
+/**
+ * Print data context in JSON format
+ * @param[in] ctx	data context
+ * @param[in] json_str	string containing data in JSON format
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_data_print_json(attest_ctx_data *ctx, char **json_str)
+{
+	struct data_item *item;
+	json_object *root, *obj;
+	enum ctx_fields field;
+	char *str;
+	int rc, j;
+
+	if (!ctx)
+		return -EINVAL;
+
+	root = json_object_new_object();
+	if (!root)
+		return -ENOMEM;
+
+	for (field = 0; field < CTX__LAST; field++) {
+		if (list_empty(&ctx->ctx_data[field]))
+			continue;
+
+		if (field == CTX_EVENT_LOG || field == CTX_AUX_DATA)
+			obj = json_object_new_object();
+		else {
+			obj = json_object_new_array();
+			j = 0;
+
+			list_for_each_entry(item, &ctx->ctx_data[field], list) {
+				rc = attest_ctx_data_new_string(DATA_FMT_BASE64,
+					item->len, item->data, &str);
+				if (!rc) {
+					json_object_array_put_idx(obj, j++,
+					  json_object_new_string((char *)str));
+					free(str);
+				}
+			}
+		}
+
+		json_object_object_add(root, attest_ctx_data_get_field(field),
+				       obj);
+	}
+
+	*json_str = strdup(json_object_to_json_string_ext(root,
+						JSON_C_TO_STRING_PRETTY));
+	return 0;
 }
 
 /**

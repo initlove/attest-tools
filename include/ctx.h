@@ -6,9 +6,11 @@
 
 #define MAX_PATH_LENGTH 2048
 
-enum ctx_fields { CTX_PRIVACY_CA_CERT, CTX_AIK_CERT, CTX_TPM_KEY,
-		  CTX_TPM_KEY_TEMPLATE, CTX_TPM_KEY_POLICY, CTX_EVENT_LOG,
-		  CTX_AUX_DATA, CTX__LAST };
+enum ctx_fields { CTX_PRIVACY_CA_CERT, CTX_AIK_CERT, CTX_TPM_AK_KEY,
+		  CTX_TPM_KEY, CTX_TPM_KEY_TEMPLATE, CTX_TPM_KEY_POLICY,
+		  CTX_EVENT_LOG, CTX_AUX_DATA, CTX_EK_CERT, CTX_EK_CA_CERT,
+		  CTX_CRED, CTX_CRED_HMAC, CTX_CREDBLOB, CTX_SECRET,
+		  CTX__LAST };
 
 enum data_formats { DATA_FMT_BASE64, DATA_FMT_URI, DATA_FMT__LAST };
 
@@ -32,6 +34,7 @@ typedef struct {
 	struct list_head logs;
 	void *pcr;
 	uint16_t pcr_algo;
+	unsigned char key[64];
 	uint8_t init;
 } attest_ctx_verifier;
 
@@ -84,6 +87,9 @@ enum data_formats attest_ctx_data_lookup_format(const char *fmt, int fmt_len);
 
 int attest_ctx_data_add(attest_ctx_data *ctx, enum ctx_fields field,
 			size_t len, unsigned char *data, const char *label);
+int attest_ctx_data_add_copy(attest_ctx_data *ctx, enum ctx_fields field,
+			     size_t len, unsigned char *data,
+			     const char *label);
 int attest_ctx_data_add_file(attest_ctx_data *ctx, enum ctx_fields field,
 			     char *path, const char *label);
 int attest_ctx_data_add_string(attest_ctx_data *ctx, enum ctx_fields field,
@@ -109,6 +115,8 @@ void attest_ctx_verifier_set_log(struct verification_log *log,
 void attest_ctx_verifier_end_log(attest_ctx_verifier *ctx,
 				 struct verification_log *log, int result);
 int attest_ctx_verifier_init(attest_ctx_verifier **ctx);
+int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx,
+				unsigned char *key, int key_len);
 void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx);
 
 #endif /*_CTX_H*/
