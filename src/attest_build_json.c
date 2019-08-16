@@ -1,8 +1,15 @@
 /*
+ * Copyright (C) 2018-2019 Huawei Technologies Duesseldorf GmbH
  *
- *   Copyright (C) 2018 Roberto Sassu <roberto.sassu@huawei.com>
+ * Author: Roberto Sassu <roberto.sassu@huawei.com>
  *
- *   GPLv2
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 2 of the
+ * License.
+ *
+ * File: attest_build_json.c
+ *      Tool for building a JSON file for verifying the SKAE.
  */
 
 #include <stdio.h>

@@ -1,8 +1,15 @@
 /*
+ * Copyright (C) 2018-2019 Huawei Technologies Duesseldorf GmbH
  *
- *   Copyright (C) 2019 Roberto Sassu <roberto.sassu@huawei.com>
+ * Author: Roberto Sassu <roberto.sassu@huawei.com>
  *
- *   GPLv2
+ * This program is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU General Public License as
+ * published by the Free Software Foundation, version 2 of the
+ * License.
+ *
+ * File: attest_parse_json.c
+ *      Tool for parsing a JSON file with data for verifying the SKAE.
  */
 
 #include <stdio.h>
