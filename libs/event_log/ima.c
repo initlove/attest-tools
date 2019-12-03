@@ -216,6 +216,7 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 	unsigned char *ima_data, *saved_ima_data;
 	uint32_t *ima_data_len, saved_ima_data_len;
 	char *template;
+	TPMT_HA digest;
 	int rc = -ENOMEM, i;
 
 	struct {
@@ -285,6 +286,28 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 
 	rc = attest_pcr_extend(v_ctx, ima_entry->header.pcr, TPM_ALG_SHA1,
 			       ima_entry->header.digest);
+	if (rc)
+		goto out;
+
+	for (i = 0; i < PCR_BANK__LAST; i++) {
+		if (attest_pcr_bank_alg(i) == TPM_ALG_SHA1)
+			continue;
+
+		digest.hashAlg = attest_pcr_bank_alg(i);
+
+		rc = TSS_Hash_Generate(&digest, *ima_data_len, ima_data, 0,
+				       NULL);
+		if (rc) {
+			rc = -EINVAL;
+			break;
+		}
+
+		rc = attest_pcr_extend(v_ctx, ima_entry->header.pcr,
+				       digest.hashAlg,
+				       (uint8_t *)&digest.digest);
+		if (rc < 0)
+			break;
+	}
 out:
 	if (!rc)
 		*parsed_log = log_entry;

@@ -48,6 +48,14 @@ static enum pcr_banks attest_pcr_lookup_bank(TPMI_ALG_HASH alg)
 	return PCR_BANK__LAST;
 }
 
+TPM_ALG_ID attest_pcr_bank_alg(enum pcr_banks bank_id)
+{
+	if (bank_id >= PCR_BANK__LAST)
+		return TPM_ALG_SHA1;
+
+	return supported_algorithms[bank_id];
+}
+
 /// @private
 int attest_pcr_init(attest_ctx_verifier *v_ctx)
 {
