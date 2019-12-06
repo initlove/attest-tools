@@ -12,13 +12,14 @@
  *      PCR functions.
  */
 
-/** @defgroup pcr-api PCR API
- *  @ingroup developer-api
- *  Event Log API
+/**
+ * @defgroup pcr-api PCR API
+ * @ingroup developer-api
+ * @brief
+ * Functions to extend or verify software PCRs
  */
 
 /**
- * @name PCR Functions
  * \addtogroup pcr-api
  *  @{
  */
@@ -32,6 +33,8 @@
 static TPMI_ALG_HASH supported_algorithms[PCR_BANK__LAST] = {
 	[PCR_BANK_SHA1] = TPM_ALG_SHA1,
 	[PCR_BANK_SHA256] = TPM_ALG_SHA256,
+	[PCR_BANK_SHA384] = TPM_ALG_SHA384,
+	[PCR_BANK_SHA512] = TPM_ALG_SHA512,
 };
 
 static enum pcr_banks attest_pcr_lookup_bank(TPMI_ALG_HASH alg)
@@ -46,34 +49,36 @@ static enum pcr_banks attest_pcr_lookup_bank(TPMI_ALG_HASH alg)
 }
 
 /// @private
-int attest_pcr_init(attest_ctx_verifier *ctx)
+int attest_pcr_init(attest_ctx_verifier *v_ctx)
 {
-	TPMT_HA *pcr, *pcr_item;
+	TPMT_HA *pcr_item;
 	int rc = 0, i, j;
+	unsigned char *pcr;
 
-	current_log(ctx);
+	current_log(v_ctx);
 
 	pcr = malloc(sizeof(TPMT_HA) * PCR_BANK__LAST * IMPLEMENTATION_PCR);
 	check_goto(!pcr, -ENOMEM, out, ctx, "out of memory");
 
 	for (i = 0; i < PCR_BANK__LAST; i++) {
 		for (j = 0; j < IMPLEMENTATION_PCR; j++) {
-			pcr_item = pcr + i * IMPLEMENTATION_PCR + j;
+			pcr_item = (TPMT_HA *)(pcr + sizeof(TPMT_HA) *
+				   (i * IMPLEMENTATION_PCR + j));
 			pcr_item->hashAlg = supported_algorithms[i];
 			memset((uint8_t *)&pcr_item->digest, 0,
 			       TSS_GetDigestSize(supported_algorithms[i]));
 		}
 	}
 
-	ctx->pcr = pcr;
+	v_ctx->pcr = pcr;
 out:
 	return rc;
 }
 
 /// @private
-void attest_pcr_cleanup(attest_ctx_verifier *ctx)
+void attest_pcr_cleanup(attest_ctx_verifier *v_ctx)
 {
-	free(ctx->pcr);
+	free(v_ctx->pcr);
 }
 
 /**
@@ -84,7 +89,7 @@ void attest_pcr_cleanup(attest_ctx_verifier *ctx)
  *
  * @returns TPMT_HA structure on success, NULL if not found
  */
-TPMT_HA *attest_pcr_get(attest_ctx_verifier *ctx, int pcr_num,
+TPMT_HA *attest_pcr_get(attest_ctx_verifier *v_ctx, int pcr_num,
 			TPMI_ALG_HASH alg)
 {
 	enum pcr_banks pcr_bank;
@@ -93,7 +98,8 @@ TPMT_HA *attest_pcr_get(attest_ctx_verifier *ctx, int pcr_num,
 	if (pcr_bank == PCR_BANK__LAST)
 		return NULL;
 
-	return (TPMT_HA *)ctx->pcr + pcr_bank * IMPLEMENTATION_PCR + pcr_num;
+	return v_ctx->pcr + sizeof(TPMT_HA) *
+	       (pcr_bank * IMPLEMENTATION_PCR + pcr_num);
 }
 
 /**
@@ -105,31 +111,38 @@ TPMT_HA *attest_pcr_get(attest_ctx_verifier *ctx, int pcr_num,
  *
  * @returns 0 on success, a negative value on error
  */
-int attest_pcr_extend(attest_ctx_verifier *ctx, unsigned int pcr_num,
+int attest_pcr_extend(attest_ctx_verifier *v_ctx, unsigned int pcr_num,
 		      TPMI_ALG_HASH alg, unsigned char *digest)
 {
 	TPMT_HA *selected_pcr;
 	int rc, digest_len = TSS_GetDigestSize(alg);
 
-	current_log(ctx);
+	current_log(v_ctx);
 
-	selected_pcr = attest_pcr_get(ctx, pcr_num, alg);
-	check_goto(!selected_pcr, -ENOENT, out, ctx, "PCR not found");
+	selected_pcr = attest_pcr_get(v_ctx, pcr_num, alg);
+	check_goto(!selected_pcr, -ENOENT, out, v_ctx, "PCR not found");
 
 	rc = TSS_Hash_Generate(selected_pcr, digest_len, &selected_pcr->digest,
 			       digest_len, digest, 0, NULL);
-	check_goto(!selected_pcr, -ENOENT, out, ctx,
-		   "TSS_Hash_Generate() error: %d", rc);
+	check_goto(rc, -EINVAL, out, v_ctx, "TSS_Hash_Generate() error: %d",
+		   rc);
 out:
-	return 0;
+	return rc;
 }
 
-/// @private
-int attest_pcr_verify(attest_ctx_verifier *ctx, TPML_PCR_SELECTION *pcrs,
-		      unsigned char *digest)
+/**
+ * Calculate PCR digest
+ * @param[in] v_ctx	verifier context
+ * @param[in] digest	PCR array
+ * @param[in] pcrs	PCR selection
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_pcr_calc_digest(attest_ctx_verifier *v_ctx, TPMT_HA *digest,
+			   TPML_PCR_SELECTION *pcrs)
 {
 	UINT16 pcrLength = 0;
-	TPMT_HA *selected_pcr, calculated_digest;
+	TPMT_HA *selected_pcr;
 	TPMI_ALG_HASH alg = pcrs->pcrSelections[0].hash;
 	int d_len = TSS_GetDigestSize(alg);
 	unsigned char buffer[IMPLEMENTATION_PCR * d_len];
@@ -140,7 +153,7 @@ int attest_pcr_verify(attest_ctx_verifier *ctx, TPML_PCR_SELECTION *pcrs,
 		if (!(pcrs->pcrSelections[0].pcrSelect[i / 8] & (1 << (i % 8))))
 			continue;
 
-		selected_pcr = attest_pcr_get(ctx, i, alg);
+		selected_pcr = attest_pcr_get(v_ctx, i, alg);
 		if (!selected_pcr)
 			return -ENOENT;
 
@@ -150,12 +163,30 @@ int attest_pcr_verify(attest_ctx_verifier *ctx, TPML_PCR_SELECTION *pcrs,
 			return rc;
 	}
 
-	calculated_digest.hashAlg = ctx->pcr_algo;
+	return TSS_Hash_Generate(digest, pcrLength, buffer, 0, NULL);
+}
 
-	rc = TSS_Hash_Generate(&calculated_digest, pcrLength, buffer, 0, NULL);
+/**
+ * Verify PCR digest
+ * @param[in] v_ctx	verifier context
+ * @param[in] pcrs	PCR selection
+ * @param[in] digest	PCR digest to compare
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_pcr_verify(attest_ctx_verifier *v_ctx, TPML_PCR_SELECTION *pcrs,
+		      TPM_ALG_ID hashAlg, unsigned char *digest)
+{
+	TPMT_HA calculated_digest;
+	int rc;
+
+	calculated_digest.hashAlg = hashAlg;
+
+	rc = attest_pcr_calc_digest(v_ctx, &calculated_digest, pcrs);
 	if (rc)
 		return rc;
 
-	return memcmp(digest, (uint8_t *)&calculated_digest.digest, d_len);
+	return memcmp(digest, (uint8_t *)&calculated_digest.digest,
+		      TSS_GetDigestSize(calculated_digest.hashAlg));
 }
 /** @}*/

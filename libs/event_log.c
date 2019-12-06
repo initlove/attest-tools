@@ -12,23 +12,16 @@
  *      Event log functions.
  */
 
-/** @defgroup developer-api Developer API
- *  Developer API
- */
-
-/** @defgroup event-log-api Event Log API
- *  @ingroup developer-api
- *  Event Log API
- */
-
-/** @defgroup verifier-api Verifier API
- *  @ingroup developer-api
- *  Event Log API
+/**
+ * @defgroup event-log-api Event Log API
+ * @ingroup developer-api
+ * @brief
+ * Event log API allows developers of verification modules to access entries
+ * of the parsed event log.
  */
 
 /**
- * @name Event Log Functions
- * \addtogroup event-log-api
+ * @addtogroup event-log-api
  *  @{
  */
 
@@ -107,6 +100,7 @@ static int attest_event_log_parse(attest_ctx_verifier *v_ctx,
 	struct event_log_entry *new_log_entry;
 	unsigned char *data_ptr = data;
 	uint32_t data_len = len;
+	void *first_parsed_log = NULL;
 	int rc = 0, i = 0;
 
 	current_log(v_ctx);
@@ -117,13 +111,17 @@ static int attest_event_log_parse(attest_ctx_verifier *v_ctx,
 			   "out of memory");
 
 		rc = parse_func(v_ctx, &data_len, &data_ptr,
-				&new_log_entry->log);
+				&new_log_entry->log, &first_parsed_log);
+		if (rc)
+			free(new_log_entry);
+
 		check_goto(rc, rc, out, v_ctx,
 			   "error parsing entry #%d of log %s", i++, log_id);
 
 		list_add_tail(&new_log_entry->list, head);
 	}
 out:
+	free(first_parsed_log);
 	return rc;
 }
 
@@ -147,12 +145,12 @@ static void attest_event_log_free_event_logs(attest_ctx_verifier *v_ctx)
 static int attest_event_log_parse_data(attest_ctx_data *d_ctx,
 				       attest_ctx_verifier *v_ctx)
 {
-	struct event_log *new_log;
+	struct event_log *new_log = NULL;
 	struct verification_log *log;
 	char library_name[MAX_PATH_LENGTH];
 	parse_log_func parse_func;
 	struct data_item *item;
-	void *handle;
+	void *handle = NULL;
 	int rc = 0;
 
 	log = attest_ctx_verifier_add_log(v_ctx, "parse event log");
@@ -178,12 +176,14 @@ static int attest_event_log_parse_data(attest_ctx_data *d_ctx,
 		INIT_LIST_HEAD(&new_log->logs);
 
 		new_log->id = item->label;
+		list_add_tail(&new_log->list, &v_ctx->event_logs);
 
 		rc = attest_event_log_parse(v_ctx, parse_func, item->label,
 					    item->len, item->data,
 					    &new_log->logs);
+		check_goto(rc, rc, out, v_ctx,
+			   "%s parser returned an error", item->label);
 
-		list_add_tail(&new_log->list, &v_ctx->event_logs);
 		dlclose(handle);
 		handle = NULL;
 	}
@@ -227,7 +227,8 @@ out:
 }
 
 /// @private
-int attest_event_log_verify(attest_ctx_data *d_ctx, attest_ctx_verifier *v_ctx)
+int attest_event_log_parse_verify(attest_ctx_data *d_ctx,
+				  attest_ctx_verifier *v_ctx, int verify)
 {
 	int rc;
 
@@ -235,9 +236,11 @@ int attest_event_log_verify(attest_ctx_data *d_ctx, attest_ctx_verifier *v_ctx)
 	if (rc)
 		goto out;
 
-	rc = attest_event_log_verify_entries(d_ctx, v_ctx);
-	if (rc)
-		goto out;
+	if (verify) {
+		rc = attest_event_log_verify_entries(d_ctx, v_ctx);
+		if (rc)
+			goto out;
+	}
 out:
 	attest_event_log_free_event_logs(v_ctx);
 

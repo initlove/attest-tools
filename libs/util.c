@@ -12,6 +12,18 @@
  *       Miscellaneous functions.
  */
 
+/**
+ * @defgroup util-api Util API
+ * @ingroup developer-api
+ * @brief
+ * Miscellaneous functions.
+ */
+
+/**
+ * \addtogroup util-api
+ *  @{
+ */
+
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -48,24 +60,83 @@ int attest_util_read_file(const char *path, size_t *len, unsigned char **data)
 	if (fd < 0)
 		return -EACCES;
 
-	*data = mmap(NULL, st.st_size,
-		     PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
-	if (*data == MAP_FAILED) {
-		rc = -ENOMEM;
-		goto out;
-	}
-
 	*len = st.st_size;
-out:
+
+	*data = mmap(NULL, *len, PROT_READ | PROT_WRITE, MAP_PRIVATE, fd, 0);
+	if (*data == MAP_FAILED)
+		rc = -ENOMEM;
+
 	close(fd);
 	return rc;
 }
 
-int attest_util_write_file(const char *path, size_t len, unsigned char *data)
+int attest_util_read_seq_file(const char *path, size_t *len,
+			      unsigned char **data)
 {
+	unsigned char buf[512], *buf_ptr = buf;
+	size_t total_len = 0, cur_len, buf_len = sizeof(buf);
+	int rc = 0, fd;
+
+	fd = open(path, O_RDONLY);
+	if (fd < 0)
+		return -EACCES;
+
+	*data = NULL;
+again:
+	if (*data) {
+		close(fd);
+		fd = open(path, O_RDONLY);
+		if (fd < 0) {
+			free (*data);
+			return -EACCES;
+		}
+	}
+
+	while (buf_len) {
+		cur_len = read(fd, buf_ptr, buf_len);
+		if (cur_len <= 0) {
+			if (*data) {
+				if (buf_len)
+					return -EIO;
+
+				break;
+			}
+
+			if (!total_len)
+				return -EIO;
+
+			*data = malloc(total_len + 1);
+			if (!*data)
+				return -ENOMEM;
+
+			(*data)[total_len] = '\0';
+
+			buf_ptr = *data;
+			buf_len = *len = total_len;
+			goto again;
+		}
+
+		if (*data) {
+			buf_ptr += cur_len;
+			buf_len -= cur_len;
+		} else {
+			total_len += cur_len;
+		}
+	}
+
+	close(fd);
+	return rc;
+}
+
+int attest_util_write_file(const char *path, size_t len, unsigned char *data,
+			   int append)
+{
+	int open_flags = O_WRONLY | O_CREAT;
 	int rc, fd;
 
-	fd = open(path, O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	open_flags |= (append) ? O_APPEND : O_TRUNC;
+
+	fd = open(path, open_flags, 0600);
 	if (!fd)
 		return -EACCES;
 
@@ -84,18 +155,23 @@ int attest_util_copy_file(const char *path_source, const char *path_dest)
 	if (rc)
 		return rc;
 
-	rc = attest_util_write_file(path_dest, len, data);
+	rc = attest_util_write_file(path_dest, len, data, 0);
 	munmap(data, len);
 	return rc;
 }
 
 static int attest_util_rw_buf(int fd, unsigned char *buf, size_t buf_len,
-			      int read)
+			      int op)
 {
 	size_t processed = 0, cur_processed;
 
 	while (processed < buf_len) {
-		cur_processed = write(fd, buf + processed, buf_len - processed);
+		if (op == O_RDONLY)
+			cur_processed = read(fd, buf + processed,
+					     buf_len - processed);
+		else
+			cur_processed = write(fd, buf + processed,
+					      buf_len - processed);
 		if (cur_processed <= 0)
 			return -EIO;
 
@@ -107,12 +183,12 @@ static int attest_util_rw_buf(int fd, unsigned char *buf, size_t buf_len,
 
 int attest_util_read_buf(int fd, unsigned char *buf, size_t buf_len)
 {
-	return attest_util_rw_buf(fd, buf, buf_len, 1);
+	return attest_util_rw_buf(fd, buf, buf_len, O_RDONLY);
 }
 
 int attest_util_write_buf(int fd, unsigned char *buf, size_t buf_len)
 {
-	return attest_util_rw_buf(fd, buf, buf_len, 0);
+	return attest_util_rw_buf(fd, buf, buf_len, O_WRONLY);
 }
 
 int attest_util_calc_digest(const char *algo, int *digest_len,
@@ -285,8 +361,78 @@ out_close:
 	return rc;
 }
 
+int attest_util_check_mask(int mask_in_len, uint8_t *mask_in,
+			   int mask_ref_len, uint8_t *mask_ref)
+{
+	int i;
+
+	if (mask_in_len > mask_ref_len)
+		return -EINVAL;
+
+	for (i = 0; i < mask_ref_len; i++) {
+		if (i > mask_in_len && mask_ref[i])
+			return -ENOENT;
+
+		if ((mask_in[i] & mask_ref[i]) != mask_ref[i])
+			return -ENOENT;
+	}
+
+	return 0;
+}
+
+int attest_util_parse_pcr_list(const char *pcr_list_str, int pcr_list_num,
+			       int *pcr_list)
+{
+	char *list, *list_ptr, *pcr_str;
+	int rc = 0, i, pcr;
+
+	for (i = 0; i < pcr_list_num; i++)
+		pcr_list[i] = -1;
+
+	i = 0;
+
+	list_ptr = list = strdup(pcr_list_str);
+	if (!list)
+		return -ENOMEM;
+
+	while ((pcr_str = strsep(&list_ptr, ","))) {
+		if (i > pcr_list_num) {
+			rc = -ERANGE;
+			goto out;
+		}
+
+		pcr = strtol(pcr_str, NULL, 10);
+		if (pcr < 0) {
+			rc = pcr;
+			goto out;
+		}
+
+		pcr_list[i++] = pcr;
+	}
+out:
+	free(list);
+	return rc;
+}
+
+/**
+ * @name Kernel Functions
+ *  @{
+ */
+
+static const char hex_asc[] = "0123456789abcdef";
+
+#define hex_asc_lo(x)	hex_asc[((x) & 0x0f)]
+#define hex_asc_hi(x)	hex_asc[((x) & 0xf0) >> 4]
+
+static inline char *hex_byte_pack(char *buf, unsigned char byte)
+{
+	*buf++ = hex_asc_hi(byte);
+	*buf++ = hex_asc_lo(byte);
+	return buf;
+}
+
 /* from lib/hexdump.c (Linux kernel) */
-int hex_to_bin(char ch)
+static int hex_to_bin(char ch)
 {
 	if ((ch >= '0') && (ch <= '9'))
 		return ch - '0';
@@ -309,3 +455,14 @@ int hex2bin(unsigned char *dst, const char *src, size_t count)
 	}
 	return 0;
 }
+
+char *bin2hex(char *dst, const void *src, size_t count)
+{
+	const unsigned char *_src = src;
+
+	while (count--)
+		dst = hex_byte_pack(dst, *_src++);
+	return dst;
+}
+/** @}*/
+/** @}*/

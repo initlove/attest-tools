@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 			output_len = strlen(output_str);
 		}
 
-		rc = attest_util_write_file(path_ptr, output_len, output);
+		rc = attest_util_write_file(path_ptr, output_len, output, 0);
 
 		if (output != (unsigned char *)output_str)
 			free(output);

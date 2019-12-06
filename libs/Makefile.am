@@ -1,9 +1,9 @@
-lib_LTLIBRARIES=libattest.la libskae.la libenroll.la libclient.la
+lib_LTLIBRARIES=libattest.la libskae.la libenroll_client.la libenroll_server.la
 
 libattest_la_LDFLAGS= -no-undefined -avoid-version
-libattest_la_LIBADD=${DEPS_LIBS}
+libattest_la_LIBADD=${DEPS_LIBS} -libmtssutils
 libattest_la_SOURCES=util.c ctx.c ctx_json.c pcr.c crypto.c event_log.c \
-		     verifier.c ../openssl_tpm2_engine/tpm2-common.c
+		     tss.c verifier.c ../openssl_tpm2_engine/tpm2-common.c
 libattest_la_CFLAGS=${DEPS_CFLAGS} -I$(top_srcdir)/include \
 		    -I$(top_srcdir)/openssl_tpm2_engine
 
@@ -13,14 +13,15 @@ libskae_la_SOURCES=skae.c
 libskae_la_CFLAGS=${DEPS_CFLAGS} -I$(top_srcdir)/include \
 		    -I$(top_srcdir)/openssl_tpm2_engine
 
-libenroll_la_LDFLAGS= -no-undefined -avoid-version
-libenroll_la_LIBADD=${DEPS_LIBS} -ltpms -ltssutils -lcrypto -ljson-c
-libenroll_la_SOURCES=util.c ctx.c ctx_json.c crypto.c enroll.c
-libenroll_la_CFLAGS=${DEPS_CFLAGS} -I$(top_srcdir)/include
+libenroll_client_la_LDFLAGS= -no-undefined -avoid-version
+libenroll_client_la_LIBADD=${DEPS_LIBS} libskae.la
+libenroll_client_la_SOURCES=enroll_client.c
+libenroll_client_la_CFLAGS=${DEPS_CFLAGS} -I$(top_srcdir)/include \
+			   -I$(top_srcdir)/openssl_tpm2_engine
 
-libclient_la_LDFLAGS= -no-undefined -avoid-version
-libclient_la_LIBADD=${DEPS_LIBS} -ltssutils
-libclient_la_SOURCES=util.c ctx.c ctx_json.c crypto.c tss.c
-libclient_la_CFLAGS=${DEPS_CFLAGS} -I$(top_srcdir)/include
+libenroll_server_la_LDFLAGS= -no-undefined -avoid-version
+libenroll_server_la_LIBADD=${DEPS_LIBS} libskae.la
+libenroll_server_la_SOURCES=enroll_server.c
+libenroll_server_la_CFLAGS=${DEPS_CFLAGS} -I$(top_srcdir)/include
 
 SUBDIRS = event_log

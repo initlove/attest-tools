@@ -1,0 +1,12 @@
+2019-12-06  Roberto Sassu <roberto.sassu@huawei.com>
+        version 0.2.0
+        * add quote protocol
+        * add parser for TPM 2.0 event log
+        * add evm_key and dummy verifiers
+        * add creation of certificate for TPM key
+        * add creation of symmetric key to be used with EVM
+        * add ima-sig and ima-cp verifiers
+
+2019-08-16  Roberto Sassu <roberto.sassu@huawei.com>
+        version 0.1.0
+        * first public release

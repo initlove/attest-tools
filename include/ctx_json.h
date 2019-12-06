@@ -28,8 +28,13 @@ int attest_ctx_data_add_json_data(attest_ctx_data *ctx, const char *data,
 				  size_t len);
 int attest_ctx_data_add_json_file(attest_ctx_data *ctx, const char *path);
 int attest_ctx_data_print_json(attest_ctx_data *ctx, char **json_str);
+int attest_ctx_data_print_json_no_value(attest_ctx_data *ctx, char **json_str);
+int attest_ctx_data_json_get_by_field(char *json_data, enum ctx_fields field,
+				      int *data_out_len,
+				      unsigned char **data_out);
+
 int attest_ctx_verifier_req_add_json_file(attest_ctx_verifier *ctx,
-					  const char *req_string);
+					  const char *path);
 char *attest_ctx_verifier_req_print_json(attest_ctx_verifier *ctx);
 char *attest_ctx_verifier_result_print_json(attest_ctx_verifier *ctx);
 char *attest_ctx_verifier_output_print_json(attest_ctx_verifier *ctx);

@@ -132,13 +132,13 @@ int main(int argc, char **argv)
 	}
 
 	rc = skae_create(version, tpms_attest_len, tpms_attest,
-			 sig_len, sig, &skae_len, &skae);
+			 sig_len, sig, &skae_len, &skae, NULL);
 	if (rc) {
 		fprintf(stderr, "Cannot create SKAE, rc: %d\n", rc);
 		goto out;
 	}
 
-	rc = attest_util_write_file(skae_path, skae_len, skae);
+	rc = attest_util_write_file(skae_path, skae_len, skae, 0);
 	if (rc) {
 		fprintf(stderr, "Cannot write SKAE, rc: %d\n", rc);
 		goto out;

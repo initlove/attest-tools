@@ -15,22 +15,25 @@
 #ifndef _PCR_H
 #define _PCR_H
 
-#define TSSINCLUDE(x) < TSS_INCLUDE/x >
-#include TSSINCLUDE(tsscrypto.h)
-#include TSSINCLUDE(tsscryptoh.h)
-#include TSSINCLUDE(tssmarshal.h)
+#include <ibmtss/tsscrypto.h>
+#include <ibmtss/tsscryptoh.h>
+#include <ibmtss/tssmarshal.h>
+#include <ibmtss/Implementation.h>
 
 #include "ctx.h"
 
-enum pcr_banks { PCR_BANK_SHA1, PCR_BANK_SHA256, PCR_BANK__LAST };
+enum pcr_banks { PCR_BANK_SHA1, PCR_BANK_SHA256, PCR_BANK_SHA384,
+		 PCR_BANK_SHA512, PCR_BANK__LAST };
 
-int attest_pcr_init(attest_ctx_verifier *ctx);
-void attest_pcr_cleanup(attest_ctx_verifier *ctx);
-TPMT_HA *attest_pcr_get(attest_ctx_verifier *ctx, int pcr_num,
+int attest_pcr_init(attest_ctx_verifier *v_ctx);
+void attest_pcr_cleanup(attest_ctx_verifier *v_ctx);
+TPMT_HA *attest_pcr_get(attest_ctx_verifier *v_ctx, int pcr_num,
 			TPMI_ALG_HASH alg);
-int attest_pcr_extend(attest_ctx_verifier *ctx, unsigned int pcr_num,
+int attest_pcr_extend(attest_ctx_verifier *v_ctx, unsigned int pcr_num,
 		      TPMI_ALG_HASH alg, unsigned char *digest);
-int attest_pcr_verify(attest_ctx_verifier *ctx, TPML_PCR_SELECTION *pcrs,
-		      unsigned char *digest);
+int attest_pcr_calc_digest(attest_ctx_verifier *v_ctx, TPMT_HA *digest,
+			   TPML_PCR_SELECTION *pcrs);
+int attest_pcr_verify(attest_ctx_verifier *v_ctx, TPML_PCR_SELECTION *pcrs,
+		      TPM_ALG_ID hashAlg, unsigned char *digest);
 
 #endif /*_PCR_H*/

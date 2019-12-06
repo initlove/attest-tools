@@ -13,8 +13,14 @@
  */
 
 /**
- * @name Subject Key Attestation Evidence (SKAE) Functions
- * \addtogroup user-api
+ * @defgroup skae-api SKAE API
+ * @ingroup app-api
+ * @brief
+ * Functions to create or verify a SKAE extension in a X.509 certificate or CSR.
+ */
+
+/**
+ * \addtogroup skae-api
  *  @{
  */
 
@@ -28,7 +34,6 @@
 #include "util.h"
 #include "ctx_json.h"
 #include "verifier.h"
-#include "skae-asn.h"
 
 static int skae_check_ext(attest_ctx_data *d_ctx, attest_ctx_verifier *v_ctx,
 			  ASN1_OCTET_STRING *data, EVP_PKEY *key)
@@ -66,45 +71,57 @@ out:
 	return rc;
 }
 
-static ASN1_OCTET_STRING *skae_get_ext_data(X509 *cert, const char *ext_name)
+static X509_EXTENSION *skae_get_ext(X509 *cert, X509_REQ *req,
+				    const char *ext_name)
 {
 	ASN1_OBJECT *obj;
-	X509_EXTENSION *ext;
-	ASN1_OCTET_STRING *ext_data = NULL;
-	int rc;
+	X509_EXTENSION *ext = NULL, *cur_ext;
+	STACK_OF(X509_EXTENSION) *exts = NULL;
+	int rc = -1, i;
 
 	obj = OBJ_txt2obj(ext_name, 1);
-	rc = X509_get_ext_by_OBJ(cert, obj, -1);
+	if (!obj)
+		return NULL;
+
+	if (cert) {
+		rc = X509_get_ext_by_OBJ(cert, obj, -1);
+	} else if (req) {
+		exts = X509_REQ_get_extensions(req);
+		if (exts)
+			rc = X509v3_get_ext_by_OBJ(exts, obj, -1);
+	}
 	ASN1_OBJECT_free(obj);
 
 	if (rc == -1)
-		return NULL;
+		goto out;
 
-	ext = X509_get_ext(cert, rc);
-	if (!ext)
-		return NULL;
+	if (cert)
+		ext = X509_get_ext(cert, rc);
+	else
+		ext = sk_X509_EXTENSION_value(exts, rc);
+out:
+	if (exts) {
+		for (i = 0; i < sk_X509_EXTENSION_num(exts); i++) {
+			if (i == rc)
+				continue;
 
-	ext_data = X509_EXTENSION_get_data(ext);
-	if (!ext_data)
-		return NULL;
+			cur_ext = sk_X509_EXTENSION_value(exts, i);
+			X509_EXTENSION_free(cur_ext);
+		}
 
-	return ext_data;
+		sk_X509_EXTENSION_free(exts);
+	}
+
+	return ext;
 }
 
-/**
- * Verify provided X.509 certificate
- *
- * @param[in] d_ctx	data context
- * @param[in] v_ctx	verifier context
- * @param[in] cert	X.509 certificate
- *
- * @returns 0 on success, a negative value on error
- */
-int skae_verify_x509(attest_ctx_data *d_ctx,
-		     attest_ctx_verifier *v_ctx, X509 *cert)
+static int skae_verify_common(attest_ctx_data *d_ctx,
+			      attest_ctx_verifier *v_ctx, X509 *cert,
+			      X509_REQ *req)
 {
 	char data_path_template[MAX_PATH_LENGTH];
-	ASN1_OCTET_STRING *skae_data = NULL, *skae_data_url = NULL;
+	X509_EXTENSION *skae_ext = NULL, *skae_url_ext = NULL;
+	ASN1_OCTET_STRING *skae_data = NULL, *skae_url_data = NULL;
 	struct verification_log *log;
 	EVP_PKEY *pk = NULL;
 	const char *data;
@@ -115,14 +132,16 @@ int skae_verify_x509(attest_ctx_data *d_ctx,
 	check_goto(!d_ctx || !v_ctx, -EINVAL, err, v_ctx,
 		   "%s context not provided", !d_ctx ? "data" : "verifier");
 
-	check_goto(!cert, -EINVAL, err, v_ctx, "certificate not provided");
+	check_goto(!cert && !req, -EINVAL, err, v_ctx,
+		   "certificate not provided");
+ 
+	skae_ext = skae_get_ext(cert, req, OID_SKAE);
+	check_goto(!skae_ext, -ENOENT, err, v_ctx, "SKAE extension not found");
 
-	skae_data = skae_get_ext_data(cert, OID_SKAE);
-	check_goto(!skae_data, -ENOENT, err, v_ctx, "SKAE extension not found");
-
-	skae_data_url = skae_get_ext_data(cert, OID_SKAE_DATA_URL);
-	if (skae_data_url) {
-		data = (const char *)skae_data_url->data + 2;
+	skae_url_ext = skae_get_ext(cert, req, OID_SKAE_DATA_URL);
+	if (skae_url_ext) {
+		skae_url_data = X509_EXTENSION_get_data(skae_url_ext);
+		data = (const char *)skae_url_data->data + 2;
 
 		snprintf(data_path_template, sizeof(data_path_template),
 			 "%s/skae-temp-file-XXXXXX", d_ctx->data_dir);
@@ -143,8 +162,14 @@ int skae_verify_x509(attest_ctx_data *d_ctx,
 			goto out;
 	}
 
-	pk = X509_get_pubkey(cert);
+	if (cert)
+		pk = X509_get_pubkey(cert);
+	else if (req)
+		pk = X509_REQ_get_pubkey(req);
+
 	check_goto(!pk, -ENOENT, err, v_ctx, "X509_get_pubkey() error");
+
+	skae_data = X509_EXTENSION_get_data(skae_ext);
 
 	rc = skae_check_ext(d_ctx, v_ctx, skae_data, pk);
 	if (rc)
@@ -162,6 +187,34 @@ err:
 }
 
 /**
+ * Verify provided X.509 certificate
+ * @param[in] d_ctx	data context
+ * @param[in] v_ctx	verifier context
+ * @param[in] cert	X.509 certificate
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int skae_verify_x509(attest_ctx_data *d_ctx,
+		     attest_ctx_verifier *v_ctx, X509 *cert)
+{
+	return skae_verify_common(d_ctx, v_ctx, cert, NULL);
+}
+
+/**
+ * Verify provided X.509 CSR
+ * @param[in] d_ctx	data context
+ * @param[in] v_ctx	verifier context
+ * @param[in] req	X.509 CSR
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int skae_verify_x509_req(attest_ctx_data *d_ctx,
+			 attest_ctx_verifier *v_ctx, X509_REQ *req)
+{
+	return skae_verify_common(d_ctx, v_ctx, NULL, req);
+}
+
+/**
  * Callback function to be passed to SSL_CTX_set_verify()
  * @param[in] preverify	result of X509 verification
  * @param[in] x509_ctx	context for certificate chain verification
@@ -176,24 +229,28 @@ int skae_callback(int preverify, X509_STORE_CTX* x509_ctx)
 	if (cert != sk_X509_value(certs, 0))
 		return 1;
 
-	return skae_verify_x509(NULL, NULL, cert);
+	return skae_verify_x509(attest_ctx_data_get_global(),
+				attest_ctx_verifier_get_global(), cert);
 }
 
 /**
  * Create SKAE extension
- * @param[in] version	TCG version
+ * @param[in] version	T	CG version
  * @param[in] tpms_attest_len	length of marshalled TPMS_ATTEST
  * @param[in] tpms_attest	marshalled TPMS_ATTEST
- * @param[in] sig_len	length of marshalled TPMT_SIGNATURE
+ * @param[in] sig_len		length of marshalled TPMT_SIGNATURE
+ * @param[in] sig		marshalled TPMT_SIGNATURE
  * @param[in,out] skae_bin_len	length of marshalled SKAE
  * @param[in,out] skae_bin	marshalled SKAE
+ * @param[in,out] skae_obj	SKAE object
  *
  * @returns 0 on success, a negative value on error
  */
 int skae_create(enum skae_versions version,
 		size_t tpms_attest_len, unsigned char *tpms_attest,
 		size_t sig_len, unsigned char *sig,
-		size_t *skae_bin_len, unsigned char **skae_bin)
+		size_t *skae_bin_len, unsigned char **skae_bin,
+		SUBJECTKEYATTESTATIONEVIDENCE **skae_obj)
 {
 	SUBJECTKEYATTESTATIONEVIDENCE *skae;
 	KEYATTESTATIONEVIDENCE *k;
@@ -246,7 +303,10 @@ int skae_create(enum skae_versions version,
 		*skae_bin_len = rc;
 
 out_skae:
-	SUBJECTKEYATTESTATIONEVIDENCE_free(skae);
+	if (!skae_obj)
+		SUBJECTKEYATTESTATIONEVIDENCE_free(skae);
+	else
+		*skae_obj = skae;
 out:
 	return rc > 0 ? 0 : -EINVAL;
 }

@@ -30,19 +30,21 @@
 	cur_len -= req_len; \
 }
 
-/** @ingroup event-log-api
+/**
+ * @ingroup event-log-api
  * Prototype of the function to parse a given event log
  *
  * @param[in] v_ctx	verifier context
  * @param[in,out] remaining_len	length of data not parsed
  * @param[in,out] data	pointer to parsed data
  * @param[in,out] parsed_log	library-specific structure of a parsed log entry
+ * @param[in,out] first_parsed_log	first parsed log
  *
  * @returns 0 on success, a negative value on error
  */
 typedef int (*parse_log_func)(attest_ctx_verifier *v_ctx,
 			      uint32_t *remaining_len, unsigned char **data,
-			      void **parsed_log);
+			      void **parsed_log, void **first_parsed_log);
 
 struct event_log {
 	struct list_head list;
@@ -64,6 +66,7 @@ int attest_event_log_verify_digest(attest_ctx_verifier *v_ctx,
 				   uint32_t data_len, uint8_t *data,
 				   TPM_ALG_ID algID);
 /// @private
-int attest_event_log_verify(attest_ctx_data *d_ctx, attest_ctx_verifier *v_ctx);
+int attest_event_log_parse_verify(attest_ctx_data *d_ctx,
+				  attest_ctx_verifier *v_ctx, int verify);
 
 #endif /*_EVENT_LOG_H*/

@@ -14,10 +14,11 @@
 #ifndef _CRYPTO_H
 #define _CRYPTO_H
 
-#include <tss2/tss.h>
-#include <tss2/tsscryptoh.h>
-#include <tss2/tssresponsecode.h>
+#include <ibmtss/tss.h>
+#include <ibmtss/tsscryptoh.h>
+#include <ibmtss/tssresponsecode.h>
 
+#include <openssl/err.h>
 #include <openssl/pem.h>
 #include <openssl/x509.h>
 

@@ -12,18 +12,28 @@
  *      Context functions.
  */
 
-/** @defgroup user-api User API
- *  User API
- */
-
-/** @defgroup context-api Context API
- *  @ingroup user-api
- *  Context API
+/**
+ * @defgroup developer-api Developer API
+ * @brief
+ * Functions for developers to extend the functionality provided by the library.
  */
 
 /**
- * @name Context API
- * \addtogroup context-api
+ * @defgroup app-api Application API
+ * @brief
+ * Functions for applications using the library
+ */
+
+/**
+ * @defgroup context-api Context API
+ * @ingroup developer-api
+ * @brief
+ * Functions to store data used by other APIs and to store the status of a
+ * verification.
+ */
+
+/**
+ * @addtogroup context-api
  *  @{
  */
 
@@ -57,10 +67,10 @@ struct verification_log unknown_log = {{&unknown_log.list, &unknown_log.list},
 static const char *ctx_fields_str[CTX__LAST] = {
 	[CTX_PRIVACY_CA_CERT] = "privacy_ca_cert",
 	[CTX_AIK_CERT] = "aik_cert",
-	[CTX_TPM_AK_KEY] = "tpm_ak_key",
-	[CTX_TPM_KEY] = "tpm_key",
-	[CTX_TPM_KEY_TEMPLATE] = "template",
+	[CTX_TPM_AK_KEY] = "tpm_ak",
+	[CTX_TPM_KEY_TEMPLATE] = "tpm_key",
 	[CTX_TPM_KEY_POLICY] = "policy",
+	[CTX_SYM_KEY_POLICY] = "sym_policy",
 	[CTX_EVENT_LOG] = "event_log",
 	[CTX_AUX_DATA] = "aux_data",
 	[CTX_EK_CERT] = "ek_cert",
@@ -69,6 +79,15 @@ static const char *ctx_fields_str[CTX__LAST] = {
 	[CTX_CRED_HMAC] = "cred_hmac",
 	[CTX_CREDBLOB] = "credblob",
 	[CTX_SECRET] = "secret",
+	[CTX_CSR] = "csr",
+	[CTX_KEY_CERT] = "key_cert",
+	[CTX_CA_CERT] = "ca_cert",
+	[CTX_HOSTNAME] = "hostname",
+	[CTX_TPM_SYM_KEY] = "tpm_sym_key",
+	[CTX_NONCE] = "nonce",
+	[CTX_NONCE_HMAC] = "nonce_hmac",
+	[CTX_TPMS_ATTEST] = "tpms_attest",
+	[CTX_TPMS_ATTEST_SIG] = "tpms_attest_sig",
 };
 
 static const char *data_formats_str[DATA_FMT__LAST] = {
@@ -77,7 +96,7 @@ static const char *data_formats_str[DATA_FMT__LAST] = {
 };
 
 /**
- * @name Common Context Functions
+ * @name Data Context API
  *  @{
  */
 
@@ -277,7 +296,7 @@ int attest_ctx_data_add_file(attest_ctx_data *ctx, enum ctx_fields field,
 }
 
 /**
- * Add string <fmt>:<data> to data context
+ * Add string \<fmt\>:\<data\> to data context
  * @param[in] ctx	data context
  * @param[in] field	field identifier
  * @param[in] string	data string
@@ -345,11 +364,10 @@ int attest_ctx_data_add_string(attest_ctx_data *ctx, enum ctx_fields field,
 }
 
 /**
- * Create new string <fmt>:<data>
- * @param[in] fmt	data format
- * @param[in] data_len	data length
- * @param[in] data	data
- * @param[in] label	data label
+ * Create new string \<fmt\>:\<data\>
+ * @param[in] fmt		data format
+ * @param[in] data_len		data length
+ * @param[in] data		data
  * @param[in,out] string	created string
  *
  * @returns 0 on success, a negative value on error
@@ -444,10 +462,17 @@ struct data_item *attest_ctx_data_lookup_by_digest(attest_ctx_data *ctx,
 }
 
 /**
+ * Return global data context
+ *
+ * @returns data context
+ */
+attest_ctx_data *attest_ctx_data_get_global(void)
+{
+	return &global_ctx_data;
+}
+
+/**
  * Obtain and initialize new data context
- *
- * If ctx is NULL the global data context will be returned.
- *
  * @param[in,out] ctx	data context
  *
  * @returns 0 on success, a negative value on error
@@ -478,16 +503,16 @@ int attest_ctx_data_init(attest_ctx_data **ctx)
 		goto out;
 	}
 
+	new_ctx->init = 1;
+
 	if (ctx)
 		*ctx = new_ctx;
 
-	(*ctx)->init = 1;
 	return rc;
 out:
-	if (new_ctx != &global_ctx_data) {
-		if (new_ctx)
-			free(new_ctx->data_dir);
+	free(new_ctx->data_dir);
 
+	if (new_ctx != &global_ctx_data) {
 		free(new_ctx);
 	}
 
@@ -496,7 +521,6 @@ out:
 
 /**
  * Deinitialize data context
- *
  * @param[in] ctx	data context
  */
 void attest_ctx_data_cleanup(attest_ctx_data *ctx)
@@ -506,6 +530,9 @@ void attest_ctx_data_cleanup(attest_ctx_data *ctx)
 	int i;
 
 	if (!ctx)
+		ctx = &global_ctx_data;
+
+	if (!ctx->init)
 		return;
 
 	for (i = 0; i < CTX__LAST; i++) {
@@ -534,15 +561,24 @@ void attest_ctx_data_cleanup(attest_ctx_data *ctx)
 	if (ctx->data_dir) {
 		rmdir(ctx->data_dir);
 		free(ctx->data_dir);
+		ctx->data_dir = NULL;
 	}
+
+	memset(ctx, 0, sizeof(*ctx));
 
 	if (ctx != &global_ctx_data)
 		free(ctx);
 }
 
+/** @} */
+
+/**
+ * @name Verifier Context API
+ *  @{
+ */
+
 /**
  * Get verifier structure
- *
  * @param[in] ctx	verifier context
  * @param[in] id	verifier identifier
  *
@@ -597,7 +633,6 @@ out:
 
 /**
  * Add verification requirement
- *
  * @param[in] ctx	verifier context
  * @param[in] verifier_str	verifier identifier
  * @param[in] req	requirement
@@ -607,13 +642,16 @@ out:
 int attest_ctx_verifier_req_add(attest_ctx_verifier *ctx,
 				const char *verifier_str, const char *req)
 {
-	const char *separator, *verifier_id;
+	const char *separator;
 	struct verifier_struct *func_array;
 	char library_name[MAX_PATH_LENGTH];
 	void *handle;
 	int rc = 0, i = 0, *num_func;
 
 	if (!ctx)
+		return -EINVAL;
+
+	if (!req)
 		return -EINVAL;
 
 	separator = strchr(verifier_str, '|');
@@ -639,18 +677,14 @@ int attest_ctx_verifier_req_add(attest_ctx_verifier *ctx,
 		goto out;
 	}
 
-	if (*separator == '|') {
-		verifier_id = separator + 1;
+	for (i = 0; i < *num_func; i++) {
+		if (!strcmp(func_array[i].id, verifier_str))
+			break;
+	}
 
-		for (i = 0; i < *num_func; i++) {
-			if (!strcmp(func_array[i].id, verifier_id))
-				break;
-		}
-
-		if (i == *num_func) {
-			rc = -ENOENT;
-			goto out;
-		}
+	if (i == *num_func) {
+		rc = -ENOENT;
+		goto out;
 	}
 
 	rc = attest_ctx_verifier_add_func(ctx, func_array[i].id, handle,
@@ -680,7 +714,6 @@ static void attest_ctx_verifier_free_logs(attest_ctx_verifier *ctx)
 
 /**
  * Create new log
- *
  * @param[in] ctx	verifier context
  * @param[in] operation	operation being performed during verification
  *
@@ -715,25 +748,30 @@ struct verification_log *attest_ctx_verifier_add_log(attest_ctx_verifier *ctx,
 
 /**
  * Get current log
- *
  * @param[in] ctx	verifier context
  *
  * @returns log on success, NULL on error
  */
 struct verification_log *attest_ctx_verifier_get_log(attest_ctx_verifier *ctx)
 {
+	struct verification_log *log;
+
 	if (!ctx)
 		return NULL;
 
 	if (list_empty(&ctx->logs))
 		return NULL;
 
-	return list_first_entry(&ctx->logs, struct verification_log, list);
+	list_for_each_entry(log, &ctx->logs, list) {
+		if (!strcmp(log->result, "in progress"))
+			return log;
+	}
+
+	return NULL;
 }
 
 /**
  * Set log message
- *
  * @param[in] log	log
  * @param[in] fmt	message format
  * @param[in] ...	data to be added to the message
@@ -763,7 +801,6 @@ void attest_ctx_verifier_set_log(struct verification_log *log,
 
 /**
  * Set result in the log
- *
  * @param[in] ctx	verifier context
  * @param[in] log	log
  * @param[in] result	result of the operation performed
@@ -789,6 +826,8 @@ void attest_ctx_verifier_end_log(attest_ctx_verifier *ctx,
 		if (strlen(previous_log->reason)) {
 			snprintf(buf, sizeof(buf), "%s failed",
 				 previous_log->operation);
+			if (strlen(log->reason))
+				free(log->reason);
 			log->reason = strdup(buf);
 			if (!log->reason)
 				log->reason = unknown_log.reason;
@@ -799,9 +838,20 @@ void attest_ctx_verifier_end_log(attest_ctx_verifier *ctx,
 }
 
 /**
- * Obtain and initialize verifier context
+ * Return global verifier context
  *
+ * @returns verifier context
+ */
+attest_ctx_verifier *attest_ctx_verifier_get_global(void)
+{
+	return &global_ctx_verifier;
+}
+
+/**
+ * Obtain and initialize verifier context
  * @param[in,out] ctx	verifier context
+ *
+ * @returns 0 on success, a negative value on error
  */
 int attest_ctx_verifier_init(attest_ctx_verifier **ctx)
 {
@@ -817,22 +867,24 @@ int attest_ctx_verifier_init(attest_ctx_verifier **ctx)
 	INIT_LIST_HEAD(&new_ctx->verifiers);
 	INIT_LIST_HEAD(&new_ctx->logs);
 
+	new_ctx->init = 1;
+
 	if (ctx)
 		*ctx = new_ctx;
 
-	(*ctx)->init = 1;
 	return 0;
 }
 
 /**
  * Set random key in the verifier context
- *
  * @param[in] ctx	verifier context
+ * @param[in] key_len	HMAC key length
+ * @param[in] key	verifier context
  *
  * @returns 0 on success, a negative value on error
  */
-int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx,
-				unsigned char *key, int key_len)
+int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx, int key_len,
+				unsigned char *key)
 {
 	if (key_len > sizeof(ctx->key))
 		return -EINVAL;
@@ -842,8 +894,26 @@ int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx,
 }
 
 /**
- * Denitialize verifier context
+ * Set desired PCR mask for key policy verification
+ * @param[in] ctx		verifier context
+ * @param[in] pcr_mask_len	PCR mask length
+ * @param[in] pcr_mask		PCR mask
  *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_verifier_set_pcr_mask(attest_ctx_verifier *ctx,
+				     int pcr_mask_len, uint8_t *pcr_mask)
+{
+	if (pcr_mask_len > sizeof(ctx->pcr_mask))
+		return -EINVAL;
+
+	memset(ctx->pcr_mask, 0, sizeof(ctx->pcr_mask));
+	memcpy(ctx->pcr_mask, pcr_mask, pcr_mask_len);
+	return 0;
+}
+
+/**
+ * Deinitialize verifier context
  * @param[in] ctx	verifier context
  */
 void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx)
@@ -851,6 +921,9 @@ void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx)
 	struct verifier_struct *v, *temp_v;
 
 	if (!ctx)
+		ctx = &global_ctx_verifier;
+
+	if (!ctx->init)
 		return;
 
 	list_for_each_entry_safe(v, temp_v, &ctx->verifiers, list) {
@@ -867,4 +940,5 @@ void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx)
 	if (ctx != &global_ctx_verifier)
 		free(ctx);
 }
+/** @}*/
 /** @}*/

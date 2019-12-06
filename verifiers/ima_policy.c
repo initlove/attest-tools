@@ -26,13 +26,11 @@ enum ima_policies {IMA_EXEC, IMA_STANDARD, IMA__LAST};
 
 const char *ima_policies_str[IMA__LAST] = {
 	[IMA_EXEC] = "exec-policy",
-	[IMA_STANDARD] = "standard-policy",
 };
 
 const char *known_policies[IMA__LAST] = {
 	[IMA_EXEC] = "measure func=BPRM_CHECK mask=MAY_EXEC\n\
 measure func=MMAP_CHECK mask=MAY_EXEC\n",
-	[IMA_STANDARD] = "",
 };
 
 static enum ima_policies lookup_ima_policy(const char *str)

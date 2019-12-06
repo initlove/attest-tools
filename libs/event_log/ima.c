@@ -12,13 +12,14 @@
  *      Parser of the IMA event log.
  */
 
-/** @defgroup ima-event-log-api IMA Event Log API
- *  @ingroup event-log-api
- *  Event Log API
+/**
+ * @defgroup ima-event-log-api IMA Event Log API
+ * @ingroup event-log-api
+ * @brief
+ * Functions to access data in a IMA event log entry
  */
 
 /**
- * @name IMA Event Log Functions
  * \addtogroup ima-event-log-api
  *  @{
  */
@@ -55,7 +56,7 @@ static int ima_template_field_index(struct ima_template_desc *desc,
 {
 	int i;
 
-	for (i = 0; i < sizeof(desc->fields); i++)
+	for (i = 0; i < desc->num_fields; i++)
 		if (desc->fields[i] == field)
 			return i;
 
@@ -206,7 +207,8 @@ struct data_item *ima_lookup_data_item(attest_ctx_data *ctx,
 
 /// @private
 int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
-			   unsigned char **data, void **parsed_log)
+			   unsigned char **data, void **parsed_log,
+			   void **first_parsed_log)
 {
 	struct ima_template_desc *desc;
 	struct ima_log_entry *log_entry;
@@ -257,21 +259,18 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 		uint32_t len = SHA_DIGEST_LENGTH;
 
 		if (desc->fields[i] != FIELD_DIGEST) {
-			check_set_ptr(*ima_data_len, ima_data,
+			check_set_ptr(saved_ima_data_len, saved_ima_data,
 				      sizeof(*t->len), typeof(*t->len), t->len);
 			len = *t->len;
 		}
 
-		check_set_ptr(*ima_data_len, ima_data,
+		check_set_ptr(saved_ima_data_len, saved_ima_data,
 			      len, typeof(*t->data), t->data);
 
 		if (desc->fields[i] == FIELD_DIGEST ||
 		    desc->fields[i] == FIELD_NAME)
 			memcpy(ima_template_data.digest, t->data, len);
 	}
-
-	ima_data_len = &saved_ima_data_len;
-	ima_data = saved_ima_data;
 
 	if (!strcmp(desc->name, "ima")) {
 		*ima_data_len = sizeof(ima_template_data);

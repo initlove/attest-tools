@@ -58,7 +58,8 @@
 
 static int attest_crypto_verify_sig_rsa(attest_ctx_verifier *v_ctx,
 					TPMT_SIGNATURE *tpmtsig,
-					TPMT_HA *digest, EVP_PKEY *evpPkey)
+					TPMT_HA *digest, EVP_PKEY *evpPkey,
+					int nid, int nid_size)
 {
 	RSA *rsaPkey;
 	int rc;
@@ -68,11 +69,11 @@ static int attest_crypto_verify_sig_rsa(attest_ctx_verifier *v_ctx,
 	rsaPkey = EVP_PKEY_get1_RSA(evpPkey);
 	check_goto(!rsaPkey, -ENOENT, out, v_ctx, "EVP_PKEY_get1_RSA() error");
 
-	rc = RSA_verify(NID_sha256,
-			(uint8_t *)&digest->digest, SHA256_DIGEST_SIZE,
+	rc = RSA_verify(nid, (uint8_t *)&digest->digest, nid_size,
 			tpmtsig->signature.rsassa.sig.t.buffer,
 			tpmtsig->signature.rsassa.sig.t.size,
 			rsaPkey);
+
 	RSA_free(rsaPkey);
 
 	check_goto(!rc, -EINVAL, out, v_ctx, "RSA_verify() failed");
@@ -83,7 +84,8 @@ out:
 
 static int attest_crypto_verify_sig_ecdsa(attest_ctx_verifier *v_ctx,
 					  TPMT_SIGNATURE *tpmtsig,
-					  TPMT_HA *digest, EVP_PKEY *evpPkey)
+					  TPMT_HA *digest, EVP_PKEY *evpPkey,
+					  int nid, int nid_size)
 {
 	EC_KEY *ecKey = NULL;
 	ECDSA_SIG *ecdsaSig = NULL;
@@ -113,7 +115,7 @@ static int attest_crypto_verify_sig_ecdsa(attest_ctx_verifier *v_ctx,
 	rc = ECDSA_SIG_set0(ecdsaSig, r, s);
 	check_goto(rc != 1, -EINVAL, out, v_ctx, "ECDSA_SIG_set0() error");
 #endif
-	rc = ECDSA_do_verify((uint8_t *)&digest->digest, SHA256_DIGEST_SIZE,
+	rc = ECDSA_do_verify((uint8_t *)&digest->digest, nid_size,
 			     ecdsaSig, ecKey);
 	check_goto(rc != 1, -EINVAL, out, v_ctx, "ECDSA_do_verify() error");
 	rc = !rc;
@@ -129,23 +131,50 @@ int attest_crypto_verify_sig(attest_ctx_verifier *v_ctx,
 			     TPMT_SIGNATURE *tpmtsig, TPMT_HA *digest,
 			     X509 *x509)
 {
-	EVP_PKEY *evpPkey;
-	int rc = -EINVAL;
+	const EVP_MD *md;
+	EVP_PKEY *evpPkey = NULL;
+	char buf[256];
+	int rc = -EINVAL, err, hash_nid = NID_undef;
 
 	current_log(v_ctx);
 
 	evpPkey = X509_get_pubkey(x509);
 	check_goto(!evpPkey, -ENOENT, out, v_ctx, "X509_get_pubkey() error");
 
+	if (tpmtsig->signature.any.hashAlg == TPM_ALG_SHA1)
+		hash_nid = NID_sha1;
+	else if (tpmtsig->signature.any.hashAlg == TPM_ALG_SHA256)
+		hash_nid = NID_sha256;
+	else if (tpmtsig->signature.any.hashAlg == TPM_ALG_SHA384)
+		hash_nid = NID_sha384;
+	else if (tpmtsig->signature.any.hashAlg == TPM_ALG_SHA512)
+		hash_nid = NID_sha512;
+
+	check_goto(hash_nid == NID_undef, -ENOENT, out, v_ctx,
+		   "unsupported hash algorithm");
+
+	md = EVP_get_digestbynid(hash_nid);
+
 	if (tpmtsig->sigAlg == TPM_ALG_RSASSA)
 		rc = attest_crypto_verify_sig_rsa(v_ctx, tpmtsig, digest,
-						  evpPkey);
+						  evpPkey, hash_nid,
+						  EVP_MD_size(md));
 	else if (tpmtsig->sigAlg == TPM_ALG_ECDSA)
 		rc = attest_crypto_verify_sig_ecdsa(v_ctx, tpmtsig, digest,
-						    evpPkey);
+						    evpPkey, hash_nid,
+						    EVP_MD_size(md));
+	else
+		rc = -ENOTSUP;
+
+	if (rc) {
+		err = ERR_get_error();
+		ERR_error_string(err, buf);
+	}
 
 	if (evpPkey)
 		EVP_PKEY_free(evpPkey);
+
+	check_goto(rc, rc, out, v_ctx, buf);
 out:
 	return rc;
 }
@@ -160,7 +189,7 @@ int attest_crypto_verify_cert(attest_ctx_data *d_ctx,
 	X509_STORE *ca_store = NULL;
 	X509_STORE_CTX *verifyCtx = NULL;
 	struct list_head *head;
-	int rc;
+	int rc, err;
 	BIO *bio;
 
 	current_log(v_ctx);
@@ -205,7 +234,12 @@ int attest_crypto_verify_cert(attest_ctx_data *d_ctx,
 	check_goto(rc != 1, -EINVAL, out, v_ctx, "X509_STORE_CTX_init() error");
 
 	rc = X509_verify_cert(verifyCtx);
-	check_goto(rc != 1, -EINVAL, out, v_ctx, "X509_verify_cert() error");
+
+	if (rc != 1)
+		err = X509_STORE_CTX_get_error(verifyCtx);
+
+	check_goto(rc != 1, -EINVAL, out, v_ctx,
+		   X509_verify_cert_error_string(err));
 
 	*x509 = aik_cert;
 	rc = 0;

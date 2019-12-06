@@ -637,7 +637,7 @@ int main(int argc, char **argv)
 	json_str = json_object_to_json_string_ext(root,
 						  JSON_C_TO_STRING_PRETTY);
 	rc = attest_util_write_file(json_path, strlen(json_str),
-				    (unsigned char *)json_str);
+				    (unsigned char *)json_str, 0);
 out:
 	json_object_put(root);
 	return rc;

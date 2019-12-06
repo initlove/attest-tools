@@ -21,10 +21,12 @@
 #define MAX_PATH_LENGTH 2048
 
 enum ctx_fields { CTX_PRIVACY_CA_CERT, CTX_AIK_CERT, CTX_TPM_AK_KEY,
-		  CTX_TPM_KEY, CTX_TPM_KEY_TEMPLATE, CTX_TPM_KEY_POLICY,
+		  CTX_TPM_KEY_TEMPLATE, CTX_TPM_KEY_POLICY, CTX_SYM_KEY_POLICY,
 		  CTX_EVENT_LOG, CTX_AUX_DATA, CTX_EK_CERT, CTX_EK_CA_CERT,
-		  CTX_CRED, CTX_CRED_HMAC, CTX_CREDBLOB, CTX_SECRET,
-		  CTX__LAST };
+		  CTX_CRED, CTX_CRED_HMAC, CTX_CREDBLOB, CTX_SECRET, CTX_CSR,
+		  CTX_KEY_CERT, CTX_CA_CERT, CTX_HOSTNAME, CTX_TPM_SYM_KEY,
+		  CTX_NONCE, CTX_NONCE_HMAC, CTX_TPMS_ATTEST,
+		  CTX_TPMS_ATTEST_SIG, CTX__LAST };
 
 enum data_formats { DATA_FMT_BASE64, DATA_FMT_URI, DATA_FMT__LAST };
 
@@ -47,7 +49,7 @@ typedef struct {
 	struct list_head verifiers;
 	struct list_head logs;
 	void *pcr;
-	uint16_t pcr_algo;
+	uint8_t pcr_mask[3];
 	unsigned char key[64];
 	uint8_t init;
 } attest_ctx_verifier;
@@ -114,6 +116,7 @@ struct data_item *attest_ctx_data_lookup_by_label(attest_ctx_data *ctx,
 						  const char *label);
 struct data_item *attest_ctx_data_lookup_by_digest(attest_ctx_data *ctx,
 				const char *algo, const uint8_t *digest);
+attest_ctx_data *attest_ctx_data_get_global(void);
 int attest_ctx_data_init(attest_ctx_data **ctx);
 void attest_ctx_data_cleanup(attest_ctx_data *ctx);
 
@@ -128,9 +131,12 @@ void attest_ctx_verifier_set_log(struct verification_log *log,
 				 const char *fmt, ...);
 void attest_ctx_verifier_end_log(attest_ctx_verifier *ctx,
 				 struct verification_log *log, int result);
+attest_ctx_verifier *attest_ctx_verifier_get_global(void);
 int attest_ctx_verifier_init(attest_ctx_verifier **ctx);
-int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx,
-				unsigned char *key, int key_len);
+int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx, int key_len,
+				unsigned char *key);
+int attest_ctx_verifier_set_pcr_mask(attest_ctx_verifier *ctx,
+				     int pcr_mask_len, uint8_t *pcr_mask);
 void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx);
 
 #endif /*_CTX_H*/

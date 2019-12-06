@@ -13,8 +13,14 @@
  */
 
 /**
- * @name JSON Context Functions
- * \addtogroup context-api
+ * @defgroup context-api-json Context API (JSON)
+ * @ingroup context-api
+ * @brief
+ * JSON specific functions for data and verifier context
+ */
+
+/**
+ * @addtogroup context-api-json
  *  @{
  */
 
@@ -25,6 +31,11 @@
 
 #include "ctx_json.h"
 #include "util.h"
+
+/**
+ * @name Data Context API
+ *  @{
+ */
 
 static int attest_ctx_data_add_json(attest_ctx_data *ctx, json_object *obj,
 				    enum ctx_fields field,
@@ -188,17 +199,11 @@ int attest_ctx_data_add_json_file(attest_ctx_data *ctx, const char *path)
 	return rc;
 }
 
-/**
- * Print data context in JSON format
- * @param[in] ctx	data context
- * @param[in] json_str	string containing data in JSON format
- *
- * @returns 0 on success, a negative value on error
- */
-int attest_ctx_data_print_json(attest_ctx_data *ctx, char **json_str)
+static int attest_ctx_data_print_json_common(attest_ctx_data *ctx,
+					     int display_value, char **json_str)
 {
 	struct data_item *item;
-	json_object *root, *obj;
+	json_object *root, *obj, *jstr;
 	enum ctx_fields field;
 	char *str;
 	int rc, j;
@@ -216,19 +221,30 @@ int attest_ctx_data_print_json(attest_ctx_data *ctx, char **json_str)
 
 		if (field == CTX_EVENT_LOG || field == CTX_AUX_DATA)
 			obj = json_object_new_object();
-		else {
+		else
 			obj = json_object_new_array();
-			j = 0;
 
-			list_for_each_entry(item, &ctx->ctx_data[field], list) {
+		j = 0;
+
+		list_for_each_entry(item, &ctx->ctx_data[field], list) {
+			if (display_value) {
 				rc = attest_ctx_data_new_string(DATA_FMT_BASE64,
-					item->len, item->data, &str);
-				if (!rc) {
-					json_object_array_put_idx(obj, j++,
-					  json_object_new_string((char *)str));
-					free(str);
-				}
+						item->len, item->data, &str);
+				if (rc)
+					continue;
+			} else {
+				str = strdup("<value>");
+				if (!str)
+					continue;
 			}
+
+			jstr = json_object_new_string((char *)str);
+			if (json_object_get_type(obj) == json_type_array)
+				json_object_array_put_idx(obj, j++, jstr);
+			else if (item->label)
+				json_object_object_add(obj, item->label, jstr);
+
+			free(str);
 		}
 
 		json_object_object_add(root, attest_ctx_data_get_field(field),
@@ -237,8 +253,83 @@ int attest_ctx_data_print_json(attest_ctx_data *ctx, char **json_str)
 
 	*json_str = strdup(json_object_to_json_string_ext(root,
 						JSON_C_TO_STRING_PRETTY));
+
+	json_object_put(root);
 	return 0;
 }
+
+/**
+ * Print data context in JSON format
+ * @param[in] ctx		data context
+ * @param[in,out] json_str	string containing data in JSON format
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_data_print_json(attest_ctx_data *ctx, char **json_str)
+{
+	return attest_ctx_data_print_json_common(ctx, 1, json_str);
+}
+
+/**
+ * Print data context in JSON format without values of JSON objects
+ * @param[in] ctx		data context
+ * @param[in,out] json_str	string containing data in JSON format
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_data_print_json_no_value(attest_ctx_data *ctx, char **json_str)
+{
+	return attest_ctx_data_print_json_common(ctx, 0, json_str);
+}
+
+/**
+ * Get data from a JSON string
+ * @param[in] json_data		Input data in JSON format
+ * @param[in] field		Type of data to extract
+ * @param[in,out] data_out_len	Output data length
+ * @param[in,out] data_out	Output data
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_ctx_data_json_get_by_field(char *json_data, enum ctx_fields field,
+				      int *data_out_len,
+				      unsigned char **data_out)
+{
+	attest_ctx_data *d_ctx_in = NULL;
+	struct data_item *item;
+	int rc = 0;
+
+	attest_ctx_data_init(&d_ctx_in);
+
+	rc = attest_ctx_data_add_json_data(d_ctx_in, json_data,
+					   strlen(json_data));
+	if (rc < 0)
+		goto out;
+
+	item = attest_ctx_data_get(d_ctx_in, field);
+	if (!item) {
+		rc = -ENOENT;
+		goto out;
+	}
+
+	*data_out_len = item->len;
+	*data_out = malloc(*data_out_len);
+	if (!*data_out) {
+		rc = -ENOMEM;
+		goto out;
+	}
+
+	memcpy(*data_out, item->data, item->len);
+out:
+	attest_ctx_data_cleanup(d_ctx_in);
+	return rc;
+}
+/** @}*/
+
+/**
+ * @name Verifier Context API
+ *  @{
+ */
 
 /**
  * Add JSON file containing requirements to verifier context
@@ -397,4 +488,5 @@ char *attest_ctx_verifier_result_print_json(attest_ctx_verifier *ctx)
 	return attest_ctx_verifier_print_json(ctx ? &ctx->logs : &head,
 					      get_result);
 }
+/** @}*/
 /** @}*/

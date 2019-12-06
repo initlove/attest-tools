@@ -12,8 +12,8 @@
  *      Code from Linux kernel (include/linux/list.h).
  */
 
-#ifndef _LIST_H
-#define _LIST_H
+#ifndef _LINUX_LIST_H
+#define _LINUX_LIST_H
 
 #define container_of(ptr, type, member) \
     (type *)((char *)(ptr) - (char *) &((type *)0)->member)
@@ -108,4 +108,4 @@ static inline int list_empty(const struct list_head *head)
 	return head->next == head;
 }
 
-#endif /*_LIST_H*/
+#endif /*_LINUX_LIST_H*/

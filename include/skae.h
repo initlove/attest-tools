@@ -23,16 +23,20 @@
 #endif
 
 #include "ctx.h"
+#include "skae-asn.h"
 
 enum skae_versions { SKAE_VER_1_2, SKAE_VER_2_0 };
 
 int skae_verify_x509(attest_ctx_data *d_ctx,
 		     attest_ctx_verifier *v_ctx, X509 *cert);
+int skae_verify_x509_req(attest_ctx_data *d_ctx,
+			 attest_ctx_verifier *v_ctx, X509_REQ *req);
 int skae_callback(int preverify, X509_STORE_CTX* x509_ctx);
 
 int skae_create(enum skae_versions version,
 		size_t tpms_attest_len, unsigned char *tpms_attest,
 		size_t sig_len, unsigned char *sig,
-		size_t *skae_bin_len, unsigned char **skae_bin);
+		size_t *skae_bin_len, unsigned char **skae_bin,
+		SUBJECTKEYATTESTATIONEVIDENCE **skae_obj);
 
 #endif /*_SKAE_H*/
