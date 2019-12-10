@@ -844,7 +844,7 @@ int attest_enroll_create_sym_key(int kernel_bios_log, int kernel_ima_log,
 	rc = build_key_policy(d_ctx, v_ctx, tssContext, NAME_ALG_KEY, PCR_ALG,
 			      pcr_list, sizeof(pcr_list) / sizeof(*pcr_list),
 			      CTX_SYM_KEY_POLICY,
-			      (kernel_bios_log | kernel_ima_log),
+			      (kernel_bios_log && kernel_ima_log),
 			      &policy_bin_len, &policy_bin);
 	if (rc < 0)
 		goto out;
@@ -1115,7 +1115,7 @@ int attest_enroll_msg_key_cert_request(int kernel_bios_log, int kernel_ima_log,
 	rc = build_key_policy(d_ctx, v_ctx, tssContext, NAME_ALG_KEY, PCR_ALG,
 			      pcr_list, sizeof(pcr_list) / sizeof(*pcr_list),
 			      CTX_TPM_KEY_POLICY,
-			      (kernel_bios_log | kernel_ima_log),
+			      (kernel_bios_log && kernel_ima_log),
 			      &policy_bin_len, &policy_bin);
 	if (rc < 0)
 		goto out;
