@@ -296,12 +296,14 @@ $ attest_tls_client -k tpm_key.pem -c key_cert.pem -d ca_cert.pem \
 
 Create a TPM key bound to PCRs 0-9,10 and request a certificate:
 
-Preliminary Steps
-1) Ensure that the client has a BIOS event log accessible from
+Preliminary Steps (on the client)
+1) ensure that the client has a BIOS event log accessible from
    /sys/kernel/security/tpm0/binary_bios_measurements
-1) Ensure that the client has a IMA event log accessible from
+2) ensure that the client has a IMA event log accessible from
    /sys/kernel/security/ima/binary_runtime_measurements and that no IMA
    policy is loaded
+3) copy the name of the file containing the Privacy CA certificate to
+   a file named 'list_privacy_ca'
 
 
 Steps (on the server)
