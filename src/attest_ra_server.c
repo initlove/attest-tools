@@ -44,6 +44,7 @@
 static struct option long_options[] = {
 	{"pcr-list", 0, 0, 'p'},
 	{"requirements", 1, 0, 'r'},
+	{"ima-violations", 0, 0, 'i'},
 	{"help", 0, 0, 'h'},
 	{"version", 0, 0, 'v'},
 	{0, 0, 0, 0}
@@ -55,6 +56,7 @@ static void usage(char *argv0)
 		"Options:\n"
 		"\t-p, --pcr-list                PCR list\n"
 		"\t-r, --requirements            verifier requirements\n"
+		"\t-i, --ima-violations          allow IMA violations\n"
 		"\t-h, --help                    print this help message\n"
 		"\t-v, --version                 print package version\n"
 		"\n"
@@ -73,11 +75,12 @@ int main(int argc, char *argv[])
 	BYTE hmac_key[64];
 	uint8_t pcr_mask[3] = { 0 };
 	int pcr_list[IMPLEMENTATION_PCR];
+	int ima_violations = 0;
 	int rc, option_index, c, fd, fd_socket, op, reuse_addr = 1;
 
 	while (1) {
 		option_index = 0;
-		c = getopt_long(argc, argv, "p:r:hv",
+		c = getopt_long(argc, argv, "p:r:ihv",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -88,6 +91,9 @@ int main(int argc, char *argv[])
 				break;
 			case 'r':
 				req_path = optarg;
+				break;
+			case 'i':
+				ima_violations = 1;
 				break;
 			case 'h':
 				usage(argv[0]);
@@ -195,6 +201,7 @@ int main(int argc, char *argv[])
 		case 2:
 			rc = attest_enroll_msg_process_csr(sizeof(pcr_mask),
 							pcr_mask, req_path,
+							ima_violations,
 							message_in, &csr_str);
 			if (rc < 0)
 				break;
@@ -226,6 +233,7 @@ int main(int argc, char *argv[])
 							     hmac_key,
 							     sizeof(pcr_mask),
 							     pcr_mask, req_path,
+							     ima_violations,
 							     message_in,
 							     &message_out);
 			break;

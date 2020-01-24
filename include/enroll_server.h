@@ -49,8 +49,8 @@ int attest_enroll_msg_make_cert(uint8_t *hmac_key, int hmac_key_len,
 				char *pcaCertPath, char *message_in,
 				char **message_out);
 int attest_enroll_msg_process_csr(int pcr_mask_len, uint8_t *pcr_mask,
-				  char *reqPath, char *message_in,
-				  char **csr_str);
+				  char *reqPath, int ima_violations,
+				  char *message_in, char **csr_str);
 int attest_enroll_sign_csr(char *caKeyPath, char *caKeyPassword,
 			   char *caCertPath, char *csr_str,
 			   char **cert_str);
@@ -60,6 +60,6 @@ int attest_enroll_msg_gen_quote_nonce(int hmac_key_len, uint8_t *hmac_key,
 				      char *message_in, char **message_out);
 int attest_enroll_msg_process_quote(int hmac_key_len, uint8_t *hmac_key,
 				    int pcr_mask_len, uint8_t *pcr_mask,
-				    char *reqPath, char *message_in,
-				    char **message_out);
+				    char *reqPath, int ima_violations,
+				    char *message_in, char **message_out);
 #endif /*_ENROLL_SERVER_H*/

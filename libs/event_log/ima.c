@@ -217,7 +217,9 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 	uint32_t *ima_data_len, saved_ima_data_len;
 	char *template;
 	TPMT_HA digest;
-	int rc = -ENOMEM, i;
+	int rc = -ENOMEM, i, violation = 0;
+	uint8_t zero[SHA_DIGEST_LENGTH] = { 0 };
+	uint8_t one[SHA512_DIGEST_LENGTH];
 
 	struct {
 		unsigned char digest[SHA_DIGEST_LENGTH];
@@ -228,6 +230,11 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 		      sizeof(ima_entry->header), typeof(*ima_entry), ima_entry);
 	check_set_ptr(*remaining_len, *data,
 		      ima_entry->header.name_len, char, template);
+
+	if (!memcmp(ima_entry->header.digest, zero, SHA_DIGEST_LENGTH)) {
+		memset(one, 0xff, sizeof(one));
+		violation = 1;
+	}
 
 	desc = lookup_template_desc(ima_entry->header.name_len, template);
 	if (!desc)
@@ -278,14 +285,17 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 		ima_data = (unsigned char *)&ima_template_data;
 	}
 
-	rc = attest_event_log_verify_digest(v_ctx, SHA_DIGEST_LENGTH,
-				ima_entry->header.digest, *ima_data_len,
-				ima_data, TPM_ALG_SHA1);
-	if (rc)
-		goto out;
+	if (!violation) {
+		rc = attest_event_log_verify_digest(v_ctx, SHA_DIGEST_LENGTH,
+					ima_entry->header.digest, *ima_data_len,
+					ima_data, TPM_ALG_SHA1);
+		if (rc)
+			goto out;
+	}
 
 	rc = attest_pcr_extend(v_ctx, ima_entry->header.pcr, TPM_ALG_SHA1,
-			       ima_entry->header.digest);
+			       (violation && v_ctx->ima_violations) ?
+			       one : ima_entry->header.digest);
 	if (rc)
 		goto out;
 
@@ -304,7 +314,8 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 
 		rc = attest_pcr_extend(v_ctx, ima_entry->header.pcr,
 				       digest.hashAlg,
-				       (uint8_t *)&digest.digest);
+				       (violation && v_ctx->ima_violations) ?
+				       one : (uint8_t *)&digest.digest);
 		if (rc < 0)
 			break;
 	}

@@ -52,6 +52,7 @@ typedef struct {
 	uint8_t pcr_mask[3];
 	unsigned char key[64];
 	uint8_t init;
+	uint8_t ima_violations;
 } attest_ctx_verifier;
 
 /** @ingroup verifier-api
@@ -137,6 +138,7 @@ int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx, int key_len,
 				unsigned char *key);
 int attest_ctx_verifier_set_pcr_mask(attest_ctx_verifier *ctx,
 				     int pcr_mask_len, uint8_t *pcr_mask);
+void attest_ctx_verifier_allow_ima_violations(attest_ctx_verifier *ctx);
 void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx);
 
 #endif /*_CTX_H*/

@@ -868,6 +868,7 @@ int attest_ctx_verifier_init(attest_ctx_verifier **ctx)
 	INIT_LIST_HEAD(&new_ctx->logs);
 
 	new_ctx->init = 1;
+	new_ctx->ima_violations = 0;
 
 	if (ctx)
 		*ctx = new_ctx;
@@ -910,6 +911,15 @@ int attest_ctx_verifier_set_pcr_mask(attest_ctx_verifier *ctx,
 	memset(ctx->pcr_mask, 0, sizeof(ctx->pcr_mask));
 	memcpy(ctx->pcr_mask, pcr_mask, pcr_mask_len);
 	return 0;
+}
+
+/**
+ * Allow IMA violations
+ * @param[in] ctx		verifier context
+ */
+void attest_ctx_verifier_allow_ima_violations(attest_ctx_verifier *ctx)
+{
+	ctx->ima_violations = 1;
 }
 
 /**
