@@ -26,6 +26,7 @@ enum pcr_banks { PCR_BANK_SHA1, PCR_BANK_SHA256, PCR_BANK_SHA384,
 		 PCR_BANK_SHA512, PCR_BANK__LAST };
 
 TPM_ALG_ID attest_pcr_bank_alg(enum pcr_banks bank_id);
+TPM_ALG_ID attest_pcr_bank_alg_from_name(char *alg_name, int alg_name_len);
 int attest_pcr_init(attest_ctx_verifier *v_ctx);
 void attest_pcr_cleanup(attest_ctx_verifier *v_ctx);
 TPMT_HA *attest_pcr_get(attest_ctx_verifier *v_ctx, int pcr_num,

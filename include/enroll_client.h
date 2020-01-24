@@ -39,18 +39,19 @@ int attest_enroll_add_quote(attest_ctx_data *d_ctx, TSS_CONTEXT *tssContext,
 			    char *akPrivPath, char *akPubPath, int nonce_len,
 			    uint8_t *nonce, TPML_PCR_SELECTION *pcr_selection);
 int attest_enroll_create_sym_key(int kernel_bios_log, int kernel_ima_log,
-				 char *pcr_list_str);
+				 char *pcr_alg_name, char *pcr_list_str);
 
 int attest_enroll_msg_ak_challenge_request(char *certListPath,
 					   char **message_out);
 int attest_enroll_msg_ak_cert_request(char *message_in, char **message_out);
 int attest_enroll_msg_ak_cert_response(char *message_in);
 int attest_enroll_msg_key_cert_request(int kernel_bios_log, int kernel_ima_log,
-				       char *pcr_list_str, char **attest_data,
-				       char **message_out);
+				       char *pcr_alg_name, char *pcr_list_str,
+				       char **attest_data, char **message_out);
 int attest_enroll_msg_key_cert_response(char *message_in);
 int attest_enroll_msg_quote_nonce_request(char **message_out);
 int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
-				    int kernel_ima_log, char *pcr_list_str,
-				    char *message_in, char **message_out);
+				    int kernel_ima_log, char *pcr_alg_name,
+				    char *pcr_list_str, char *message_in,
+				    char **message_out);
 #endif /*ENROLL_CLIENT_H*/

@@ -37,6 +37,13 @@ static TPMI_ALG_HASH supported_algorithms[PCR_BANK__LAST] = {
 	[PCR_BANK_SHA512] = TPM_ALG_SHA512,
 };
 
+const char *supported_algorithms_names[PCR_BANK__LAST] = {
+	[PCR_BANK_SHA1] = "sha1",
+	[PCR_BANK_SHA256] = "sha256",
+	[PCR_BANK_SHA384] = "sha384",
+	[PCR_BANK_SHA512] = "sha512",
+};
+
 static enum pcr_banks attest_pcr_lookup_bank(TPMI_ALG_HASH alg)
 {
 	int i;
@@ -54,6 +61,18 @@ TPM_ALG_ID attest_pcr_bank_alg(enum pcr_banks bank_id)
 		return TPM_ALG_SHA1;
 
 	return supported_algorithms[bank_id];
+}
+
+TPM_ALG_ID attest_pcr_bank_alg_from_name(char *alg_name, int alg_name_len)
+{
+	int i;
+
+	for (i = 0; i < PCR_BANK__LAST; i++)
+		if (!strncmp(supported_algorithms_names[i],
+			     alg_name, alg_name_len))
+			return supported_algorithms[i];
+
+	return TPM_ALG_SHA1;
 }
 
 /// @private

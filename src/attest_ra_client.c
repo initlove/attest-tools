@@ -153,11 +153,12 @@ int main(int argc, char **argv)
 	char *message_in = NULL, *message_out = NULL;
 	char *test_server_fqdn = SERVER_HOSTNAME, *pcr_list_str = NULL;
 	char **attest_data_ptr = NULL, *attest_data, *attest_data_path;
+	char *pcr_alg_name = "sha1";
 	int rc = 0, option_index, c, kernel_bios_log = 0, kernel_ima_log = 0;
 
 	while (1) {
 		option_index = 0;
-		c = getopt_long(argc, argv, "akyqs:bip:r:hv",
+		c = getopt_long(argc, argv, "akyqs:bip:P:r:hv",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -186,6 +187,9 @@ int main(int argc, char **argv)
 				break;
 			case 'p':
 				pcr_list_str = optarg;
+				break;
+			case 'P':
+				pcr_alg_name = optarg;
 				break;
 			case 'r':
 				attest_data_path = optarg;
@@ -248,6 +252,7 @@ int main(int argc, char **argv)
 	case REQUEST_KEY_CERT:
 		rc = attest_enroll_msg_key_cert_request(kernel_bios_log,
 							kernel_ima_log,
+							pcr_alg_name,
 							pcr_list_str,
 							attest_data_ptr,
 							&message_in);
@@ -271,6 +276,7 @@ int main(int argc, char **argv)
 	case CREATE_SYM_KEY:
 		rc = attest_enroll_create_sym_key(kernel_bios_log,
 						  kernel_ima_log,
+						  pcr_alg_name,
 						  pcr_list_str);
 		break;
 	case SEND_QUOTE:
@@ -288,8 +294,8 @@ int main(int argc, char **argv)
 
 		rc = attest_enroll_msg_quote_request("list_privacy_ca",
 						kernel_bios_log, kernel_ima_log,
-						pcr_list_str, message_in,
-						&message_out);
+						pcr_alg_name, pcr_list_str,
+						message_in, &message_out);
 		if (rc < 0)
 			break;
 
