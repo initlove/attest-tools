@@ -1337,10 +1337,8 @@ int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
 	if (rc < 0)
 		goto out;
 
-	rc = attest_ctx_data_add_file(d_ctx, CTX_SYM_KEY_POLICY,
-				      "sym_policy.pem", NULL);
-	if (rc < 0)
-		goto out;
+	attest_ctx_data_add_file(d_ctx, CTX_SYM_KEY_POLICY, "sym_policy.pem",
+				 NULL);
 
 	rc = TSS_Create((TSS_CONTEXT **)&tssContext);
 	if (rc < 0)
