@@ -167,7 +167,7 @@ int attest_enroll_make_cert(attest_ctx_data *d_ctx_in,
 		"DE",
 		"Bayern",
 		"Muenchen",
-		"Huawei",
+		"Organization",
 		NULL,
 		NULL,
 		NULL

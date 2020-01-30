@@ -594,7 +594,7 @@ int attest_enroll_add_csr(char *key_path, attest_ctx_data *d_ctx,
 		"DE",
 		"Bayern",
 		"Muenchen",
-		"Huawei",
+		"Organization",
 		NULL,
 		hostname,
                 NULL
