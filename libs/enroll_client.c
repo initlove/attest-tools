@@ -901,6 +901,32 @@ out:
 }
 
 /**
+ * Generate an AK
+ *
+ * @returns 0 on success, a negative value on error
+ */
+int attest_enroll_generate_ak(void)
+{
+	attest_ctx_data *d_ctx = NULL;
+	void *tssContext;
+	int rc;
+
+	attest_ctx_data_init(&d_ctx);
+
+	rc = TSS_Create((TSS_CONTEXT **)&tssContext);
+	if (rc)
+		return -EINVAL;
+
+	rc = attest_enroll_add_key(d_ctx, tssContext, "akpriv.bin", "akpub.bin",
+				   KEY_TYPE_AK, NAME_ALG_AK, HASH_ALG_AK, 0,
+				   NULL);
+
+	attest_ctx_data_cleanup(d_ctx);
+	TSS_Delete(tssContext);
+	return rc;
+}
+
+/**
  * @name Protocol API
  *  @{
  */

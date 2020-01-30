@@ -110,6 +110,7 @@ out:
 
 static struct option long_options[] = {
 	{"request-ak-cert", 0, 0, 'a'},
+	{"generate-ak", 0, 0, 'A'},
 	{"request-key-cert", 0, 0, 'k'},
 	{"create-sym-key", 0, 0, 'y'},
 	{"send-quote", 0, 0, 'q'},
@@ -129,6 +130,7 @@ static void usage(char *argv0)
 	fprintf(stdout, "Usage: %s [options] <filename>\n\n"
 		"Options:\n"
 		"\t-a, --request-ak-cert         request AK cert\n"
+		"\t-A, --generate-ak             generate AK\n"
 		"\t-k, --request-key-cert        request TLS Key cert\n"
 		"\t-y, --create-sym-key          create symmetric key\n"
 		"\t-q, --send-quote              send quote\n"
@@ -146,8 +148,8 @@ static void usage(char *argv0)
 	exit(-1);
 }
 
-enum request_types { REQUEST_AK_CERT, REQUEST_KEY_CERT, CREATE_SYM_KEY,
-		     SEND_QUOTE, REQUEST__LAST };
+enum request_types { REQUEST_AK_CERT, GENERATE_AK, REQUEST_KEY_CERT,
+		     CREATE_SYM_KEY, SEND_QUOTE, REQUEST__LAST };
 
 int main(int argc, char **argv)
 {
@@ -161,7 +163,7 @@ int main(int argc, char **argv)
 
 	while (1) {
 		option_index = 0;
-		c = getopt_long(argc, argv, "akyqSs:bip:P:r:hv",
+		c = getopt_long(argc, argv, "aAkyqSs:bip:P:r:hv",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -169,6 +171,9 @@ int main(int argc, char **argv)
 		switch (c) {
 			case 'a':
 				type = REQUEST_AK_CERT;
+				break;
+			case 'A':
+				type = GENERATE_AK;
 				break;
 			case 'k':
 				type = REQUEST_KEY_CERT;
@@ -254,6 +259,9 @@ int main(int argc, char **argv)
 			break;
 
 		rc = attest_enroll_msg_ak_cert_response(message_out);
+		break;
+	case GENERATE_AK:
+		rc = attest_enroll_generate_ak();
 		break;
 	case REQUEST_KEY_CERT:
 		rc = attest_enroll_msg_key_cert_request(kernel_bios_log,
