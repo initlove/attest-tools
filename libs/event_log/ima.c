@@ -294,8 +294,9 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 	}
 
 	rc = attest_pcr_extend(v_ctx, ima_entry->header.pcr, TPM_ALG_SHA1,
-			       (violation && v_ctx->ima_violations) ?
-			       one : ima_entry->header.digest);
+			(violation &&
+			(v_ctx->flags & CTX_ALLOW_IMA_VIOLATIONS) ?
+			one : ima_entry->header.digest));
 	if (rc)
 		goto out;
 
@@ -313,9 +314,10 @@ int attest_event_log_parse(attest_ctx_verifier *v_ctx, uint32_t *remaining_len,
 		}
 
 		rc = attest_pcr_extend(v_ctx, ima_entry->header.pcr,
-				       digest.hashAlg,
-				       (violation && v_ctx->ima_violations) ?
-				       one : (uint8_t *)&digest.digest);
+				digest.hashAlg,
+				(violation &&
+				(v_ctx->flags & CTX_ALLOW_IMA_VIOLATIONS)) ?
+				one : (uint8_t *)&digest.digest);
 		if (rc < 0)
 			break;
 	}

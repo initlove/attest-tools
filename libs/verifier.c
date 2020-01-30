@@ -411,10 +411,12 @@ int attest_verifier_check_tpms_attest(attest_ctx_data *d_ctx,
 	if (!d_ctx || !v_ctx)
 		return -EINVAL;
 
-	rc = attest_verifier_check_signature(d_ctx, v_ctx, tpms_attest_len,
-					     tpms_attest, sig_len, sig);
-	if (rc)
-		return rc;
+	if (!(v_ctx->flags & CTX_SKIP_SIG_VER)) {
+		rc = attest_verifier_check_signature(d_ctx, v_ctx,
+				tpms_attest_len, tpms_attest, sig_len, sig);
+		if (rc)
+			return rc;
+	}
 
 	rc = TPMS_ATTEST_Unmarshal(&a, &tpms_attest, &tpms_attest_len);
 	if (rc)

@@ -674,14 +674,14 @@ out:
  * @param[in] pcr_mask_len	Length of required PCR mask
  * @param[in] pcr_mask		Mask of PCR to check
  * @param[in] reqPath		Path of requirements for TPM key policy check
- * @param[in] ima_violations	allow IMA violations
+ * @param[in] verifier_flags	verifier flags
  * @param[in] message_in	input message
  * @param[in,out] csr_str	CSR in PEM format
  *
  * @returns 0 on success, a negative value on error
  */
 int attest_enroll_msg_process_csr(int pcr_mask_len, uint8_t *pcr_mask,
-				  char *reqPath, int ima_violations,
+				  char *reqPath, uint16_t verifier_flags,
 				  char *message_in, char **csr_str)
 {
 	attest_ctx_data *d_ctx_in = NULL;
@@ -695,8 +695,7 @@ int attest_enroll_msg_process_csr(int pcr_mask_len, uint8_t *pcr_mask,
 	attest_ctx_data_init(&d_ctx_in);
 	attest_ctx_verifier_init(&v_ctx);
 	attest_ctx_verifier_set_pcr_mask(v_ctx, pcr_mask_len, pcr_mask);
-	if (ima_violations)
-		attest_ctx_verifier_allow_ima_violations(v_ctx);
+	attest_ctx_verifier_set_flags(v_ctx, verifier_flags);
 
 	rc = attest_ctx_data_add_json_data(d_ctx_in, message_in,
 					   strlen(message_in));
@@ -844,7 +843,7 @@ out:
  * @param[in] pcr_mask_len	Length of required PCR mask
  * @param[in] pcr_mask		Mask of PCR to check
  * @param[in] reqPath		Path of requirements for TPM key policy check
- * @param[in] ima_violations	allow IMA violations
+ * @param[in] verifier_flags	verifier flags
  * @param[in] message_in	input message
  * @param[in,out] message_out	output message
  *
@@ -852,7 +851,7 @@ out:
  */
 int attest_enroll_msg_process_quote(int hmac_key_len, uint8_t *hmac_key,
 				    int pcr_mask_len, uint8_t *pcr_mask,
-				    char *reqPath, int ima_violations,
+				    char *reqPath, uint16_t verifier_flags,
 				    char *message_in, char **message_out)
 {
 	attest_ctx_data *d_ctx = NULL;
@@ -869,8 +868,7 @@ int attest_enroll_msg_process_quote(int hmac_key_len, uint8_t *hmac_key,
 	attest_ctx_verifier_init(&v_ctx);
 	attest_ctx_verifier_set_pcr_mask(v_ctx, pcr_mask_len, pcr_mask);
 	attest_ctx_verifier_set_key(v_ctx, hmac_key_len, hmac_key);
-	if (ima_violations)
-		attest_ctx_verifier_allow_ima_violations(v_ctx);
+	attest_ctx_verifier_set_flags(v_ctx, verifier_flags);
 
 	log = attest_ctx_verifier_add_log(v_ctx, "verify quote");
 

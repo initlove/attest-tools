@@ -1279,6 +1279,7 @@ out:
  * @param[in] kernel_ima_log	take or not the current IMA event log
  * @param[in] pcr_alg_name	Selected PCR bank
  * @param[in] pcr_list_str	String containing selected PCRs
+ * @param[in] skip_sig_ver	skip signature verification
  * @param[in] message_in	Input message
  * @param[in,out] message_out	Output message
  *
@@ -1286,8 +1287,8 @@ out:
  */
 int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
 				    int kernel_ima_log, char *pcr_alg_name,
-				    char *pcr_list_str, char *message_in,
-				    char **message_out)
+				    char *pcr_list_str, int skip_sig_ver,
+				    char *message_in, char **message_out)
 {
 #ifdef DEBUG
 	char *message_in_stripped;
@@ -1335,8 +1336,9 @@ int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
 		if (!strlen(certPath))
 			continue;
 
-		rc = attest_ctx_data_add_file(d_ctx, CTX_PRIVACY_CA_CERT,
-					      certPath, NULL);
+		rc = attest_ctx_data_add_file(d_ctx,
+						CTX_PRIVACY_CA_CERT,
+						certPath, NULL);
 		if (rc < 0)
 			break;
 	}
@@ -1346,8 +1348,8 @@ int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
 	if (rc < 0)
 		goto out;
 
-	rc = attest_ctx_data_add_file(d_ctx, CTX_AIK_CERT, "aik_cert.pem",
-				      NULL);
+	rc = attest_ctx_data_add_file(d_ctx, CTX_AIK_CERT,
+					"aik_cert.pem", NULL);
 	if (rc < 0)
 		goto out;
 

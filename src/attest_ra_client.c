@@ -113,6 +113,7 @@ static struct option long_options[] = {
 	{"request-key-cert", 0, 0, 'k'},
 	{"create-sym-key", 0, 0, 'y'},
 	{"send-quote", 0, 0, 'q'},
+	{"skip-sig-ver", 0, 0, 'S'},
 	{"test-server-fqdn", 1, 0, 's'},
 	{"kernel-bios-log", 0, 0, 'b'},
 	{"kernel-ima-log", 0, 0, 'i'},
@@ -131,6 +132,7 @@ static void usage(char *argv0)
 		"\t-k, --request-key-cert        request TLS Key cert\n"
 		"\t-y, --create-sym-key          create symmetric key\n"
 		"\t-q, --send-quote              send quote\n"
+		"\t-S, --skip-sig-ver            skip signature verification\n"
 		"\t-s, --test-server-fqdn        server FQDN\n"
 		"\t-b, --kernel-bios-log         use kernel BIOS log\n"
 		"\t-i, --kernel-ima-log          use kernel IMA log\n"
@@ -154,11 +156,12 @@ int main(int argc, char **argv)
 	char *test_server_fqdn = SERVER_HOSTNAME, *pcr_list_str = NULL;
 	char **attest_data_ptr = NULL, *attest_data, *attest_data_path;
 	char *pcr_alg_name = "sha1";
+	int skip_sig_ver = 0;
 	int rc = 0, option_index, c, kernel_bios_log = 0, kernel_ima_log = 0;
 
 	while (1) {
 		option_index = 0;
-		c = getopt_long(argc, argv, "akyqs:bip:P:r:hv",
+		c = getopt_long(argc, argv, "akyqSs:bip:P:r:hv",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -175,6 +178,9 @@ int main(int argc, char **argv)
 				break;
 			case 'q':
 				type = SEND_QUOTE;
+				break;
+			case 'S':
+				skip_sig_ver = 1;
 				break;
 			case 's':
 				test_server_fqdn = optarg;
@@ -295,7 +301,8 @@ int main(int argc, char **argv)
 		rc = attest_enroll_msg_quote_request("list_privacy_ca",
 						kernel_bios_log, kernel_ima_log,
 						pcr_alg_name, pcr_list_str,
-						message_in, &message_out);
+						skip_sig_ver, message_in,
+						&message_out);
 		if (rc < 0)
 			break;
 

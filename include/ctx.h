@@ -38,10 +38,14 @@ struct data_item {
 	char *label;
 };
 
+#define CTX_INIT			0x01
+#define CTX_ALLOW_IMA_VIOLATIONS	0x02
+#define CTX_SKIP_SIG_VER		0x04
+
 typedef struct {
 	struct list_head ctx_data[CTX__LAST];
 	char *data_dir;
-	uint8_t init;
+	uint16_t flags;
 } attest_ctx_data;
 
 typedef struct {
@@ -51,8 +55,7 @@ typedef struct {
 	void *pcr;
 	uint8_t pcr_mask[3];
 	unsigned char key[64];
-	uint8_t init;
-	uint8_t ima_violations;
+	uint16_t flags;
 } attest_ctx_verifier;
 
 /** @ingroup verifier-api
@@ -138,7 +141,7 @@ int attest_ctx_verifier_set_key(attest_ctx_verifier *ctx, int key_len,
 				unsigned char *key);
 int attest_ctx_verifier_set_pcr_mask(attest_ctx_verifier *ctx,
 				     int pcr_mask_len, uint8_t *pcr_mask);
-void attest_ctx_verifier_allow_ima_violations(attest_ctx_verifier *ctx);
+void attest_ctx_verifier_set_flags(attest_ctx_verifier *ctx, uint16_t flags);
 void attest_ctx_verifier_cleanup(attest_ctx_verifier *ctx);
 
 #endif /*_CTX_H*/

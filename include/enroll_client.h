@@ -52,6 +52,6 @@ int attest_enroll_msg_key_cert_response(char *message_in);
 int attest_enroll_msg_quote_nonce_request(char **message_out);
 int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
 				    int kernel_ima_log, char *pcr_alg_name,
-				    char *pcr_list_str, char *message_in,
-				    char **message_out);
+				    char *pcr_list_str, int skip_sig_ver,
+				    char *message_in, char **message_out);
 #endif /*ENROLL_CLIENT_H*/
