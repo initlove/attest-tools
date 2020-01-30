@@ -118,7 +118,8 @@ static struct option long_options[] = {
 	{"test-server-fqdn", 1, 0, 's'},
 	{"kernel-bios-log", 0, 0, 'b'},
 	{"kernel-ima-log", 0, 0, 'i'},
-	{"pcr-list", 0, 0, 'p'},
+	{"pcr-list", 1, 0, 'p'},
+	{"pcr-algo", 1, 0, 'P'},
 	{"save-attest-data", 1, 0, 'r'},
 	{"send-unsigned-files", 0, 0, 'u'},
 	{"help", 0, 0, 'h'},
@@ -140,6 +141,7 @@ static void usage(char *argv0)
 		"\t-b, --kernel-bios-log         use kernel BIOS log\n"
 		"\t-i, --kernel-ima-log          use kernel IMA log\n"
 		"\t-p, --pcr-list                PCR list\n"
+		"\t-P, --pcr-algo                PCR bank algorithm\n"
 		"\t-r, --save-attest-data <file> save attest data\n"
 		"\t-u, --send-unsigned-files     send unsigned files\n"
 		"\t-h, --help                    print this help message\n"
