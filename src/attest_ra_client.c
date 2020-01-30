@@ -120,6 +120,7 @@ static struct option long_options[] = {
 	{"kernel-ima-log", 0, 0, 'i'},
 	{"pcr-list", 0, 0, 'p'},
 	{"save-attest-data", 1, 0, 'r'},
+	{"send-unsigned-files", 0, 0, 'u'},
 	{"help", 0, 0, 'h'},
 	{"version", 0, 0, 'v'},
 	{0, 0, 0, 0}
@@ -140,6 +141,7 @@ static void usage(char *argv0)
 		"\t-i, --kernel-ima-log          use kernel IMA log\n"
 		"\t-p, --pcr-list                PCR list\n"
 		"\t-r, --save-attest-data <file> save attest data\n"
+		"\t-u, --send-unsigned-files     send unsigned files\n"
 		"\t-h, --help                    print this help message\n"
 		"\t-v, --version                 print package version\n"
 		"\n"
@@ -158,12 +160,12 @@ int main(int argc, char **argv)
 	char *test_server_fqdn = SERVER_HOSTNAME, *pcr_list_str = NULL;
 	char **attest_data_ptr = NULL, *attest_data, *attest_data_path;
 	char *pcr_alg_name = "sha1";
-	int skip_sig_ver = 0;
+	int skip_sig_ver = 0, send_unsigned_files = 0;
 	int rc = 0, option_index, c, kernel_bios_log = 0, kernel_ima_log = 0;
 
 	while (1) {
 		option_index = 0;
-		c = getopt_long(argc, argv, "aAkyqSs:bip:P:r:hv",
+		c = getopt_long(argc, argv, "aAkyqSs:bip:P:r:uhv",
 				long_options, &option_index);
 		if (c == -1)
 			break;
@@ -205,6 +207,9 @@ int main(int argc, char **argv)
 			case 'r':
 				attest_data_path = optarg;
 				attest_data_ptr = &attest_data;
+				break;
+			case 'u':
+				send_unsigned_files = 1;
 				break;
 			case 'h':
 				usage(argv[0]);
@@ -268,6 +273,7 @@ int main(int argc, char **argv)
 							kernel_ima_log,
 							pcr_alg_name,
 							pcr_list_str,
+							send_unsigned_files,
 							attest_data_ptr,
 							&message_in);
 		if (rc < 0)
@@ -309,8 +315,9 @@ int main(int argc, char **argv)
 		rc = attest_enroll_msg_quote_request("list_privacy_ca",
 						kernel_bios_log, kernel_ima_log,
 						pcr_alg_name, pcr_list_str,
-						skip_sig_ver, message_in,
-						&message_out);
+						skip_sig_ver,
+						send_unsigned_files,
+						message_in, &message_out);
 		if (rc < 0)
 			break;
 

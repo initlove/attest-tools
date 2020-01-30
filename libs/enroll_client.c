@@ -381,7 +381,8 @@ static int save_certs(attest_ctx_data *d_ctx, enum ctx_fields cert,
 #define IMA_BINARY_MEASUREMENTS SECURITYFS_PATH "ima/" IMA_FILENAME
 
 static int collect_data(attest_ctx_data *d_ctx, attest_ctx_verifier *v_ctx,
-			int kernel_bios_log, int kernel_ima_log)
+			int kernel_bios_log, int kernel_ima_log,
+			int send_unsigned_files)
 {
 	unsigned char *data = NULL;
 	struct stat st;
@@ -418,6 +419,9 @@ static int collect_data(attest_ctx_data *d_ctx, attest_ctx_verifier *v_ctx,
 	}
 
 	if (rc)
+		goto out;
+
+	if (!send_unsigned_files)
 		goto out;
 
 	rc = attest_ctx_verifier_req_add(v_ctx, "ima_cp|verify", "");
@@ -842,7 +846,7 @@ int attest_enroll_create_sym_key(int kernel_bios_log, int kernel_ima_log,
 	if (rc < 0)
 		goto out;
 
-	rc = collect_data(d_ctx, v_ctx, kernel_bios_log, kernel_ima_log);
+	rc = collect_data(d_ctx, v_ctx, kernel_bios_log, kernel_ima_log, 0);
 	if (rc < 0)
 		goto out;
 
@@ -1097,7 +1101,7 @@ out:
  * @param[in] kernel_ima_log	take or not the current IMA event log
  * @param[in] pcr_alg_name	PCR algorithm name
  * @param[in] pcr_list_str	String of selected PCRs
-
+ * @param[in] send_unsigned_files	Send unsigned files to verifier
  * @param[in,out] attest_data	data necessary for key verification
  * @param[in,out] message_out	message with certificate request
  *
@@ -1105,6 +1109,7 @@ out:
  */
 int attest_enroll_msg_key_cert_request(int kernel_bios_log, int kernel_ima_log,
 				       char *pcr_alg_name, char *pcr_list_str,
+				       int send_unsigned_files,
 				       char **attest_data, char **message_out)
 {
 	attest_ctx_data *d_ctx = NULL;
@@ -1145,7 +1150,8 @@ int attest_enroll_msg_key_cert_request(int kernel_bios_log, int kernel_ima_log,
 	if (rc < 0)
 		goto out;
 
-	rc = collect_data(d_ctx, v_ctx, kernel_bios_log, kernel_ima_log);
+	rc = collect_data(d_ctx, v_ctx, kernel_bios_log, kernel_ima_log,
+			  send_unsigned_files);
 	if (rc < 0)
 		goto out;
 
@@ -1306,6 +1312,7 @@ out:
  * @param[in] pcr_alg_name	Selected PCR bank
  * @param[in] pcr_list_str	String containing selected PCRs
  * @param[in] skip_sig_ver	skip signature verification
+ * @param[in] send_unsigned_files	Send unsigned files to verifier
  * @param[in] message_in	Input message
  * @param[in,out] message_out	Output message
  *
@@ -1314,7 +1321,8 @@ out:
 int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
 				    int kernel_ima_log, char *pcr_alg_name,
 				    char *pcr_list_str, int skip_sig_ver,
-				    char *message_in, char **message_out)
+				    int send_unsigned_files, char *message_in,
+				    char **message_out)
 {
 #ifdef DEBUG
 	char *message_in_stripped;
@@ -1417,7 +1425,8 @@ int attest_enroll_msg_quote_request(char *certListPath, int kernel_bios_log,
 	if (rc < 0)
 		goto out;
 
-	rc = collect_data(d_ctx, v_ctx, kernel_bios_log, kernel_ima_log);
+	rc = collect_data(d_ctx, v_ctx, kernel_bios_log, kernel_ima_log,
+			  send_unsigned_files);
 	if (rc < 0)
 		goto out_ctx;
 
